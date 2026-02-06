@@ -41,9 +41,9 @@ public:
 	void StartCreateFlow();
 	UFUNCTION(BlueprintCallable)
 	void StartFindFlow();
-	void StartJoinFlow(const FOnlineSessionSearchResult& TargetSession) const { 
-		UE_LOG(LogTemp, Warning, TEXT("Event Called"));
-		OnJoinSessionRequested.Broadcast(TargetSession); }
+	void StartJoinFlow(const FOnlineSessionSearchResult& TargetSession) const { OnJoinSessionRequested.Broadcast(TargetSession); }
+	UFUNCTION(BlueprintCallable)
+	void StartLeaveFlow();
 	FOnJoinSessionRequested OnJoinSessionRequested;
 
 	UFUNCTION(BlueprintCallable)

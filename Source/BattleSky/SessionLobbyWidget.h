@@ -25,4 +25,6 @@ protected :
 
 	UPROPERTY(meta = (BindWidget))
 	class UButton* Btn_GameStart;
+	UPROPERTY(meta = (BindWidget))
+	class UButton* Btn_Quit;
 };

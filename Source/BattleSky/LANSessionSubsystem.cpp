@@ -8,6 +8,7 @@
 #include "BattleSkyGameInstance.h"
 
 static FName NAME_SessionLevel(TEXT("/Game/Levels/LobbyLevel"));
+static FName NAME_MainLevel(TEXT("/Game/Levels/MainLevel"));
 
 void ULANSessionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -202,6 +203,44 @@ void ULANSessionSubsystem::OnJoinSessionComplete(FName SessionName, EOnJoinSessi
 	}
 }
 
+void ULANSessionSubsystem::LeaveSession()
+{
+	if (!SessionInterface.IsValid())
+	{
+		return;
+	}
+
+	// 현재 로컬 플레이어 세션 이름 가져오기
+	FName SessionName = NAME_GameSession;
+
+	FOnDestroySessionCompleteDelegate DestroyDelegate;
+	DestroyDelegate.BindUObject(this, &ULANSessionSubsystem::OnLeaveSessionComplete);
+
+	SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(DestroyDelegate);
+
+	SessionInterface->DestroySession(SessionName);
+}
+
+void ULANSessionSubsystem::OnLeaveSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	 if (bWasSuccessful)
+	 {
+        UE_LOG(LogTemp, Warning, TEXT("Left session %s successfully"), *SessionName.ToString());
+
+		// 로비 UI로 돌아가기
+      /*  if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
+        {
+            UI->ShowMainMenu();
+        }*/
+
+		// 레벨 이동: 로컬 클라이언트를 로비 레벨로 이동
+		UGameplayStatics::OpenLevel(GetWorld(), NAME_MainLevel);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Failed to leave session %s"), *SessionName.ToString());
+    }
+}
 void ULANSessionSubsystem::OnSessionRequestReceived(bool bIsCreating)
 {
 	bIsCreating ? CreateSession() : FindSessions();

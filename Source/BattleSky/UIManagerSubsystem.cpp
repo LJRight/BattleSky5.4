@@ -77,6 +77,14 @@ void UUIManagerSubsystem::StartFindFlow()
     SwitchWidget(NameInputWidgetClass);
 }
 
+void UUIManagerSubsystem::StartLeaveFlow()
+{
+    if (ULANSessionSubsystem* LAN = GetGameInstance()->GetSubsystem<ULANSessionSubsystem>())
+    {
+        LAN->LeaveSession();
+    }
+}
+
 void UUIManagerSubsystem::BackToMainMenu()
 {
     SwitchWidget(MainMenuWidgetClass);

@@ -31,6 +31,8 @@ public:
 	void FindSessions();
 	void CreateSession();
 	void JoinSession(const FOnlineSessionSearchResult& TargetSession);
+	void LeaveSession();
+
 
 	UFUNCTION(BlueprintCallable)
 	void OnSessionsFoundFromBP(const TArray<FBlueprintSessionResult>& Results);
@@ -38,7 +40,8 @@ public:
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
-	
+	void OnLeaveSessionComplete(FName SessionName, bool bWasSuccessful);
+
 	// 1) OnlineSubsystem delegate
 	FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
 	FDelegateHandle OnFindSessionsCompleteHandle;
