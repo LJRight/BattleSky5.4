@@ -38,8 +38,11 @@ void ULANSessionSubsystem::Subscribe()
 	if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("LAN Session Subsystem has completed Event subscribe"));
-		FDelegateHandle OnConfirmButtonClickedHandle = 
+		FDelegateHandle OnSessionLogicRequestedHandle = 
 			UI->OnSessionLogicRequested.AddUObject(this, &ULANSessionSubsystem::OnSessionRequestReceived);
+
+		FDelegateHandle OnJoinSessionRequestedHandle = 
+			UI->OnJoinSessionRequested.AddUObject(this, &ULANSessionSubsystem::JoinSession);
 	}
 }
 
@@ -47,6 +50,7 @@ void ULANSessionSubsystem::FindSessions()
 {
 	if (!SessionInterface.IsValid())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("SessionInterface is InValid"));
 		return;
 	}
 	UE_LOG(LogTemp, Warning, TEXT("LAN Session SubSystem is Finding Sessions..."));
@@ -83,10 +87,12 @@ void ULANSessionSubsystem::OnSessionsFoundFromBP(const TArray<FBlueprintSessionR
 	OnSessionsFound.Broadcast(SearchResults);
 }
 
+// C++ 로직, 정상적으로 동작하지 않음
 void ULANSessionSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 {
 	if (!SessionInterface.IsValid())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("SessionInterface is InValid"));
 		return;
 	}
 	SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteHandle);
@@ -101,6 +107,7 @@ void ULANSessionSubsystem::CreateSession()
 {
 	if (!SessionInterface.IsValid())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("SessionInterface is InValid"));
 		return;
 	}
 	UE_LOG(LogTemp, Warning, TEXT("LAN Session SubSystem is Creating Sessions..."));
@@ -118,7 +125,7 @@ void ULANSessionSubsystem::CreateSession()
 	{
 		PlayerName = GI->PlayerName;
 	}
-	SessionSettings.Set(TEXT("HOST_PLAYER_NAME"),PlayerName,EOnlineDataAdvertisementType::ViaOnlineService);
+	SessionSettings.Set(TEXT("HOST_PLAYER_NAME"), PlayerName, EOnlineDataAdvertisementType::ViaOnlineService);
 	
 	if (SessionInterface->GetNamedSession(NAME_GameSession) != nullptr)
 	{
@@ -134,7 +141,7 @@ void ULANSessionSubsystem::OnCreateSessionComplete(FName SessionName, bool bWasS
 	{
 		UE_LOG(LogTemp, Log, TEXT("Session %s created!"), *SessionName.ToString());
 		UGameplayStatics::OpenLevel(GetWorld(), NAME_SessionLevel, true, "listen");
-		//OnSessionCreated.Broadcast();
+		// OnSessionCreated.Broadcast();
 	}
 	else
 	{
@@ -142,11 +149,57 @@ void ULANSessionSubsystem::OnCreateSessionComplete(FName SessionName, bool bWasS
 	}
 }
 
+void ULANSessionSubsystem::JoinSession(const FOnlineSessionSearchResult& TargetSession)
+{
+	if (!SessionInterface.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SessionInterface is InValid"));
+		return;
+	}
+	OnJoinSessionCompleteHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
+	
+	bool bJoinStarted = SessionInterface->JoinSession(0, NAME_GameSession, TargetSession);
 
+	if (!bJoinStarted)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("JoinSession: Failed to start joining session"));
+		SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteHandle);
+	}
+}
 
 void ULANSessionSubsystem::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
+	if (!SessionInterface.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SessionInterface is InValid"));
+		return;
+	}
 
+	// Delegate 해제
+	SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteHandle);
+
+	if (Result == EOnJoinSessionCompleteResult::Success)
+	{
+		FString ConnectString;
+		if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
+		{
+			UE_LOG(LogTemp, Log, TEXT("Joining session at %s"), *ConnectString);
+
+			// 실제 서버로 접속
+			if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+			{
+				PC->ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("JoinSession: Could not get connection string"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("JoinSession failed with result: %d"), (int32)Result);
+	}
 }
 
 void ULANSessionSubsystem::OnSessionRequestReceived(bool bIsCreating)

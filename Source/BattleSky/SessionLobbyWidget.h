@@ -16,9 +16,13 @@ class BATTLESKY_API USessionLobbyWidget : public UUserWidget
 	
 public :
 	void UpdateLobbyPlayerNames(const TArray<FString>& PlayerNames);
+	void GameStartButtonDisplaySetting(bool bIsShown);
 
 protected :
 	
 	UPROPERTY(meta = (BindWidget))
 	class UVerticalBox* PlayerListBox;
+
+	UPROPERTY(meta = (BindWidget))
+	class UButton* Btn_GameStart;
 };

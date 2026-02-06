@@ -47,7 +47,7 @@ void UUIManagerSubsystem::ShowMainMenu(APlayerController* Owner)
     }
 }
 
-void UUIManagerSubsystem::ShowSessionLobby(APlayerController* Owner)
+void UUIManagerSubsystem::ShowSessionLobby(APlayerController* Owner, bool bIsHost)
 {
     if (!SessionLobbyWidgetClass || !Owner)
     {
@@ -55,6 +55,10 @@ void UUIManagerSubsystem::ShowSessionLobby(APlayerController* Owner)
 		return;
     }
     CurrentWidget = CreateWidget<UUserWidget>(Owner, SessionLobbyWidgetClass);
+    if (USessionLobbyWidget* LobbyWidget = Cast<USessionLobbyWidget>(CurrentWidget))
+    {
+        LobbyWidget->GameStartButtonDisplaySetting(bIsHost);
+    }
     if (CurrentWidget)
     {
         CurrentWidget->AddToViewport();
@@ -71,11 +75,6 @@ void UUIManagerSubsystem::StartFindFlow()
 {
     bIsCreatingSession = false;
     SwitchWidget(NameInputWidgetClass);
-}
-
-void UUIManagerSubsystem::StartJoinFlow()
-{
-   
 }
 
 void UUIManagerSubsystem::BackToMainMenu()

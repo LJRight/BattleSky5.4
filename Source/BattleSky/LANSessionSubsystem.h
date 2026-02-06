@@ -30,7 +30,7 @@ public:
 
 	void FindSessions();
 	void CreateSession();
-	void JoinSession();
+	void JoinSession(const FOnlineSessionSearchResult& TargetSession);
 
 	UFUNCTION(BlueprintCallable)
 	void OnSessionsFoundFromBP(const TArray<FBlueprintSessionResult>& Results);

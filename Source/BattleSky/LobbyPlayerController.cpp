@@ -14,17 +14,15 @@ void ALobbyPlayerController::BeginPlay()
 
 	if (IsLocalController())
 	{
-
 		/*GetWorld()->GetTimerManager().SetTimerForNextTick(this, &ALobbyPlayerController::ShowLobbyUI);*/
 		if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Lobby Player Controller Show Main Menu"));
-			UI->ShowSessionLobby(this);
+			UI->ShowSessionLobby(this, HasAuthority());
 		}
 		bShowMouseCursor = true;
 		bEnableClickEvents = true;
 		bEnableMouseOverEvents = true;
-
 	}
 	Server_SendPlayerNameToGameState(Cast<UBattleSkyGameInstance>(GetGameInstance())->PlayerName);
 }
@@ -42,6 +40,6 @@ void ALobbyPlayerController::ShowLobbyUI()
 	if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Lobby Player Controller Show Main Menu"));
-		UI->ShowSessionLobby(this);
+		UI->ShowSessionLobby(this, HasAuthority());
 	}
 }

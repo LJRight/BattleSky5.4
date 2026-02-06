@@ -16,9 +16,11 @@ void ALobbyGameState::AddPlayerName(const FString& NewName)
 {
     if (!HasAuthority()) return;
 
-    PlayerNames.Add(NewName);
-    // 모든 클라 + 호스트에게 UI 갱신 호출
-    MultiCast_UpdatePlayerNames(PlayerNames);
+    if (!PlayerNames.Contains(NewName))
+    {
+        PlayerNames.Add(NewName);
+        MultiCast_UpdatePlayerNames(PlayerNames);
+    }
 }
 
 // 멀티캐스트 RPC 구현

@@ -4,6 +4,7 @@
 #include "SessionLobbyWidget.h"
 #include "Components/VerticalBox.h"
 #include "Components/TextBlock.h"
+#include "Components/Button.h"
 
 void USessionLobbyWidget::UpdateLobbyPlayerNames(const TArray<FString>& PlayerNames)
 {
@@ -13,7 +14,6 @@ void USessionLobbyWidget::UpdateLobbyPlayerNames(const TArray<FString>& PlayerNa
 		return;
 	}
 	PlayerListBox->ClearChildren();
-
     for (const FString& Name : PlayerNames)
     {
         UTextBlock* PlayerText = NewObject<UTextBlock>(this);
@@ -27,4 +27,9 @@ void USessionLobbyWidget::UpdateLobbyPlayerNames(const TArray<FString>& PlayerNa
             PlayerListBox->AddChild(PlayerText);
         }
     }
+}
+
+void USessionLobbyWidget::GameStartButtonDisplaySetting(bool bIsShown)
+{
+	Btn_GameStart->SetVisibility(bIsShown ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
 }

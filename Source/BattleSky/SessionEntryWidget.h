@@ -24,5 +24,9 @@ public :
 	class UButton* Btn_Session;
 
 private:
+	UFUNCTION()
+	void OnSessionEntryButtonClicked();
+		
+	FName TargetSessionName;
 	FOnlineSessionSearchResult CachedSearchResult;
 };

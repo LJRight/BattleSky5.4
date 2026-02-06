@@ -5,6 +5,7 @@
 #include "UIManagerSubsystem.generated.h"
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSessionLogicRequested, const bool);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnJoinSessionRequested, const FOnlineSessionSearchResult&);
 
 UCLASS()
 class BATTLESKY_API UUIManagerSubsystem : public UGameInstanceSubsystem
@@ -34,14 +35,17 @@ public:
 	TSubclassOf<UUserWidget> SessionLobbyWidgetClass;
 
 	void ShowMainMenu(APlayerController* Owner);
-	void ShowSessionLobby(APlayerController* Owner);
+	void ShowSessionLobby(APlayerController* Owner, bool bIsHost);
 
 	UFUNCTION(BlueprintCallable)
 	void StartCreateFlow();
 	UFUNCTION(BlueprintCallable)
 	void StartFindFlow();
-	UFUNCTION(BlueprintCallable)
-	void StartJoinFlow();
+	void StartJoinFlow(const FOnlineSessionSearchResult& TargetSession) const { 
+		UE_LOG(LogTemp, Warning, TEXT("Event Called"));
+		OnJoinSessionRequested.Broadcast(TargetSession); }
+	FOnJoinSessionRequested OnJoinSessionRequested;
+
 	UFUNCTION(BlueprintCallable)
 	void BackToMainMenu();
 
