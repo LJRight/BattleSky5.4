@@ -7,6 +7,49 @@
 #include "CharacterStateTypes.h"
 #include "BattleSkyAnimInstance.generated.h"
 
+USTRUCT(BlueprintType)
+struct FVelocityBlend
+{
+	GENERATED_BODY()
+	FVelocityBlend(float F = 0.f, float B = 0.f, float L = 0.f, float R = 0.f)
+		: F(F), B(B), L(L), R(R) 
+	{
+	}
+	float F;
+	float B;
+	float L;
+	float R;
+	FVelocityBlend Interp(const FVelocityBlend& Target, float InterpSpeed, float DeltaTime) const
+	{
+		return FVelocityBlend(
+			FMath::FInterpTo(this->F, Target.F, InterpSpeed, DeltaTime),
+			FMath::FInterpTo(this->B, Target.B, InterpSpeed, DeltaTime),
+			FMath::FInterpTo(this->L, Target.L, InterpSpeed, DeltaTime),
+			FMath::FInterpTo(this->R, Target.R, InterpSpeed, DeltaTime)
+		);
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FLeanAmount
+{
+	GENERATED_BODY()
+	FLeanAmount(float LR = 0, float FB = 0) 
+		: LR(LR), FB(FB)
+	{
+	}
+	float LR;
+	float FB;
+	FLeanAmount Interp(const FLeanAmount& Target, float InterpSpeed, float DeltaTime) const
+	{
+		return FLeanAmount(
+			FMath::FInterpTo(this->LR, Target.LR, InterpSpeed, DeltaTime),
+			FMath::FInterpTo(this->FB, Target.FB, InterpSpeed, DeltaTime)
+		);
+	}
+
+};
+
 UCLASS()
 class BATTLESKY_API UBattleSkyAnimInstance : public UAnimInstance
 {
@@ -25,7 +68,20 @@ private:
 	void UpdateLayerValues();
 	void UpdateFootIK();
 
-	FVector CalculateAcceleration(const FVector& CurrentVelocity, float DeltaSeconds) const;
+	bool ShouldMoveCheck() const;
+
+	bool PrevShouldMove;
+
+	void UpdateMovementValues();
+	FVelocityBlend CalculateVelocityBlend();
+
+	float CalculateStandingPlayRate();
+	float CalculateCrouchingPlayRate();
+
+	void UpdateRotationValues();
+
+	// FVector CalculateAcceleration(const FVector& CurrentVelocity, float DeltaSeconds) const;
+
 	// Character Information
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character Information", meta = (AllowPrivateAccess="ture"))
 	FRotator AimingRotation;
@@ -49,6 +105,38 @@ private:
 	float AimYawRate;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character Information", meta = (AllowPrivateAccess = "ture"))
 	float ZoomAmount;
+
+	// Anim Graph - Grounded
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	FVector RelativeAccelerationAmount;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	bool ShouldMove;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	bool Rotate_L;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	bool Rotate_R;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	bool Pivot;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float RotateRate;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float RotationScale;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float DiagonalScaleAmount;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float WalkRunBlend;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float StandingPlayRate;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float CrouchingPlayRate;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float StrideBlend;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	FVelocityBlend VelocityBlend;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	FLeanAmount	LeanAmount;
+
+
 
 
 	// State Values
@@ -97,6 +185,90 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Aiming Values)", meta = (AllowPrivateAccess = "true"))
 	float RightYawTime;
 	
+	// Anim Graph - Layer Blending
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	int OverlayOverrideState;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Enable_AimOffset;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float BasePose_N;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float BasePose_CLF;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Arm_L;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Arm_L_Add;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Arm_L_LS;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Arm_L_MS;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Arm_R;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Arm_R_Add;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Arm_R_LS;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Arm_R_MS;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Hand_L;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Hand_R;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Legs;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Legs_Add;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Pelvis;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Spine;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Spine_Add;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Head;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Head_Add;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Enable_HandIK_L;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
+	float Enable_HandIK_R;
+
+
+	// Turn In Place
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float TurnCheckMinAngle;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float Turn180Threshold;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float AimYawRateLimit;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float ElapsedDelayTime;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float MinAngleDelay;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float MaxAngleDelay;
+
+
+	// Blend Curves
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveFloat* DiagonalScaleAmountCurve;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveFloat* StrideBlend_N_Walk;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveFloat* StrideBlend_N_Run;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveFloat* StrideBlend_C_Walk;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveFloat* LandPredictionCurve;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveFloat* LeanInAirCurve;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveVector* YawOffset_FB;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveVector* YawOffset_LR;
+
+
 	// User Options
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "User Option", meta = (AllowPrivateAccess = "true"))
 	float AnimatedWalkSpeed;
@@ -117,4 +289,5 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "User Option", meta = (AllowPrivateAccess = "true"))
 	float InputYawOffsetInterpSpeed;
 
+	
 };
