@@ -18,6 +18,7 @@ void UBattleSkyCameraAnimInstance::UpdateCharacterInfo()
 	if(ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(ControlledPawn))
 	{
 		RightShoulder = BattleSkyCharacter->RightShoulder;
+		UE_LOG(LogTemp, Warning, TEXT("%s"), RightShoulder ? TEXT("Right Shoulder") : TEXT("Left Shoulder"));
 		MovementState = BattleSkyCharacter->MovementState;
 		PrevMovementState = BattleSkyCharacter->PrevMovementState;
 		MovementAction = BattleSkyCharacter->MovementAction;

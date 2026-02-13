@@ -29,7 +29,11 @@ public:
 public:
 	void DoMove(const FInputActionValue& Value);
 	void DoWalk(const FInputActionValue& Value);
+
 	void DoCrouch(const FInputActionValue& Value);
+	
+	// virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	void DoSprint(const FInputActionValue& Value);
 	void DoFreeLook(const FInputActionValue& Value);
 	void DoProne(const FInputActionValue& Value);
@@ -50,7 +54,7 @@ public:
 	ERotationMode RotationMode;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EGait Gait;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
+	UPROPERTY(Replicated ,EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EStance Stance;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EViewMode ViewMode;
@@ -62,6 +66,7 @@ public:
 	float ThirdPersonFOV;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
 	float FirstPersonFOV;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
 	bool RightShoulder;
 

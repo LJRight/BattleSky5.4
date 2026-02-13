@@ -11,7 +11,7 @@ class BATTLESKY_API ABattleSkyCameraManager : public APlayerCameraManager
 	
 public:
 	ABattleSkyCameraManager();
-	void OnPossess(APawn* NewPawn);
+	// void OnPossess(APawn* NewPawn);
 
 	UFUNCTION(BlueprintCallable)
 	void CustomCameraBehavior(FVector& OutLocation, FRotator& OutRotation, float& OutFOV);
@@ -23,7 +23,7 @@ protected:
 	USkeletalMeshComponent* CameraBehavior;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	APawn* ControlledPawn = nullptr;
+	APawn* ControlledPawn = nullptr;	
 	
 	FVector RootLocation;
 	FTransform SmoothedPivotTarget;
@@ -31,8 +31,4 @@ protected:
 	FVector TargetCameraLocation;
 	UPROPERTY(VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
 	FRotator TargetCameraRotation;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "Target Tag")
-	FName NAME_PlayerActorTagName;
-
 };

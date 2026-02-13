@@ -42,15 +42,17 @@ void ABattleSkyPlayerController::SetupInputComponent()
 	}
 }
 
-// 폰을 소유했을 때, 카메라 매니저에 알림
-void ABattleSkyPlayerController::OnPossess(APawn* InPawn)
-{
-	Super::OnPossess(InPawn);
-	if (ABattleSkyCameraManager* BSCameraManager = Cast<ABattleSkyCameraManager>(PlayerCameraManager))
-	{
-		BSCameraManager->OnPossess(InPawn);
-	}
-}
+// 호스트가 아닌 클라이언트의 경우 해당 함수는 서버에서만 호출되고,
+// 카메라 매니저는 Replicate 대상이 아니므로
+// 로컬 카메라 매니저는 제대로 소유한 폰 참조를 얻을 수 없다
+// //void ABattleSkyPlayerController::OnPossess(APawn* InPawn)
+//{
+//	Super::OnPossess(InPawn);
+//	if (ABattleSkyCameraManager* BSCameraManager = Cast<ABattleSkyCameraManager>(PlayerCameraManager))
+//	{
+//		BSCameraManager->OnPossess(InPawn);
+//	}
+//}
 
 void ABattleSkyPlayerController::BeginPlay()
 {
@@ -98,6 +100,7 @@ void ABattleSkyPlayerController::OnJumpEnd(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnCrouch(const FInputActionValue& Value)
 {
+
 }
 
 void ABattleSkyPlayerController::OnProne(const FInputActionValue& Value)
@@ -106,6 +109,7 @@ void ABattleSkyPlayerController::OnProne(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnWalk(const FInputActionValue& Value)
 {
+	
 }
 
 void ABattleSkyPlayerController::OnSprint(const FInputActionValue& Value)

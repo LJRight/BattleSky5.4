@@ -10,6 +10,9 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Net/UnrealNetwork.h"
+
+
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -79,6 +82,10 @@ void ABattleSkyCharacter::DoMove(const FInputActionValue& Value)
 	}
 }
 
+void ABattleSkyCharacter::DoCrouch(const FInputActionValue& Value)
+{
+}
+
 FTransform ABattleSkyCharacter::Get3pPivotTarget() const
 {
 	return GetActorTransform();
@@ -94,4 +101,12 @@ void ABattleSkyCharacter::GetCameraParameters(float& OutTP_FOV, float& OutFP_FOV
 	OutTP_FOV = ThirdPersonFOV;
 	OutFP_FOV = FirstPersonFOV;
 	OutRightShoulder = RightShoulder;
+}
+
+void ABattleSkyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ABattleSkyCharacter, Stance);
+	DOREPLIFETIME(ABattleSkyCharacter, Gait);
+	DOREPLIFETIME(ABattleSkyCharacter, MovementState);
 }

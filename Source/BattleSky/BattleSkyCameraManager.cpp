@@ -30,15 +30,17 @@ ABattleSkyCameraManager::ABattleSkyCameraManager()
 	CameraBehavior->SetupAttachment(RootComponent);
 }
 
-void ABattleSkyCameraManager::OnPossess(APawn* NewPawn)
-{
-	ControlledPawn = NewPawn;
-	if (UBattleSkyCameraAnimInstance* BSAnimInstance = Cast<UBattleSkyCameraAnimInstance>(CameraBehavior->GetAnimInstance()))
-	{
-		 BSAnimInstance->SetOwningController(GetOwningPlayerController());
-		 BSAnimInstance->SetControlledPawn(ControlledPawn);
-	}
-}
+
+// 리슨 서버에 있는 클라이언트의 경우 로컬 PlayerController 에서 OnPossess 가 호출되지 않는다. 
+//void ABattleSkyCameraManager::OnPossess(APawn* NewPawn)
+//{
+//	ControlledPawn = NewPawn;
+//	if (UBattleSkyCameraAnimInstance* BSAnimInstance = Cast<UBattleSkyCameraAnimInstance>(CameraBehavior->GetAnimInstance()))
+//	{
+//		 BSAnimInstance->SetOwningController(GetOwningPlayerController());
+//		 BSAnimInstance->SetControlledPawn(ControlledPawn);
+//	}
+//}
 
 /* 캐릭터 정보 수집
 → 카메라 회전 계산
@@ -51,6 +53,23 @@ void ABattleSkyCameraManager::OnPossess(APawn* NewPawn)
 */
 void ABattleSkyCameraManager::CustomCameraBehavior(FVector& OutLocation, FRotator& OutRotation, float& OutFOV)
 {
+	// 로컬 카메라 매니저는 매 틱마다 컨트롤러와 소유한 폰을 찾는다
+	APlayerController* OwningPlayerController = GetOwningPlayerController();
+	if (!OwningPlayerController)
+	{
+		return;
+	}
+	ControlledPawn = OwningPlayerController->GetPawn();
+	if (!ControlledPawn)
+	{
+		return;
+	}
+	if (UBattleSkyCameraAnimInstance* BSCameraAnimInstance = Cast<UBattleSkyCameraAnimInstance>(CameraBehavior->GetAnimInstance()))
+	{
+		BSCameraAnimInstance->SetOwningController(GetOwningPlayerController());
+		BSCameraAnimInstance->SetControlledPawn(ControlledPawn);
+	}
+
 	// Step 1: Get Camera Parameters from CharacterBP via the Camera Interface
 	FTransform PivotTarget;
 	FVector FPTarget;
@@ -91,19 +110,21 @@ void ABattleSkyCameraManager::CustomCameraBehavior(FVector& OutLocation, FRotato
 
 	SmoothedPivotTarget = FTransform(PivotTarget.GetRotation().Rotator(), SmoothedPivotTargetLocation, FVector(1.f));
 	
+	// 중심점 오프셋 값을 Camera AnimInstance 의 커브값을 통해 읽어온다
 	const FVector PivotLocationOffset(
 		GetCameraBehaviorParam(NAME_PivotOffset_X),
 		GetCameraBehaviorParam(NAME_PivotOffset_Y),
 		GetCameraBehaviorParam(NAME_PivotOffset_Z)
 	);
 
+	// 카메라 위치 오프셋 값을 Camera AnimInstance 의 커브값을 통해 읽어온다.
 	const FVector CameraOffset(
 		GetCameraBehaviorParam(NAME_CameraOffset_X),
 		GetCameraBehaviorParam(NAME_CameraOffset_Y),
 		GetCameraBehaviorParam(NAME_CameraOffset_Z)
 	);
-
 	// Step 5: Calculate Target Camera Location. Get the Pivot location and apply camera relative offsets
+	// Setp 5: 카메라 최종 위치를 계산한다. 회전 기준점 위치에, 카메라의 상대적 오프셋을 더한다.
 	PivotLocation = SmoothedPivotTarget.GetLocation() + SmoothedPivotTarget.GetRotation().Rotator().RotateVector(PivotLocationOffset);
 	TargetCameraLocation = PivotLocation + TargetCameraRotation.RotateVector(CameraOffset);
 
