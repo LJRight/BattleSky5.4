@@ -3,7 +3,12 @@
 
 #include "LobbyGameMode.h"
 
-void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
+void ALobbyGameMode::StartGame()
 {
-	Super::PostLogin(NewPlayer);
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	World->ServerTravel("/Game/Levels/TestInGame?listen");
 }

@@ -41,9 +41,6 @@ void ULANSessionSubsystem::Subscribe()
 		UE_LOG(LogTemp, Warning, TEXT("LAN Session Subsystem has completed Event subscribe"));
 		FDelegateHandle OnSessionLogicRequestedHandle = 
 			UI->OnSessionLogicRequested.AddUObject(this, &ULANSessionSubsystem::OnSessionRequestReceived);
-
-		FDelegateHandle OnJoinSessionRequestedHandle = 
-			UI->OnJoinSessionRequested.AddUObject(this, &ULANSessionSubsystem::JoinSession);
 	}
 }
 
@@ -56,23 +53,17 @@ void ULANSessionSubsystem::FindSessions()
 	}
 	UE_LOG(LogTemp, Warning, TEXT("LAN Session SubSystem is Finding Sessions..."));
 	
-	/* 세션 검색 동작이 C++ 로 구현 시 제대로 동작하지 않아, 일단은 MainMenuPlayerController BP 에 위임하여 FindSessions 노드로 검색 후,
-	   해당 결과를 LANSessionSubsystem 에 전달하는 구조로 설계 */
-	if (AMainMenuPlayerController* PC = Cast<AMainMenuPlayerController>(GetWorld()->GetFirstPlayerController()))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Delegating FindSessions to MainMenuPlayerController BP..."));
-		PC->SearchLocalSession_BP();
-	}
-	/*
+	
 	OnFindSessionsCompleteHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 
 	SessionSearch = MakeShareable(new FOnlineSessionSearch);
 	SessionSearch->bIsLanQuery = true;
 	SessionSearch->MaxSearchResults = 50;
-	SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCESEARCH")), true, EOnlineComparisonOp::Equals);
+	//SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCESEARCH")), true, EOnlineComparisonOp::Equals);
 
-	SessionInterface->FindSessions(0, SessionSearch.ToSharedRef());
-	*/
+	SessionInterface->FindSessions(0, SessionSearch.ToSharedRef());	
+
+	
 }
 
 void ULANSessionSubsystem::OnSessionsFoundFromBP(const TArray<FBlueprintSessionResult>& Results)
@@ -88,7 +79,7 @@ void ULANSessionSubsystem::OnSessionsFoundFromBP(const TArray<FBlueprintSessionR
 	OnSessionsFound.Broadcast(SearchResults);
 }
 
-// C++ 로직, 정상적으로 동작하지 않음
+// C++ 로직, 정상 동작
 void ULANSessionSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 {
 	if (!SessionInterface.IsValid())
@@ -132,7 +123,6 @@ void ULANSessionSubsystem::CreateSession()
 	{
 		SessionInterface->DestroySession(NAME_GameSession);
 	}
-
 	SessionInterface->CreateSession(0, NAME_GameSession, SessionSettings);
 }
 
@@ -241,9 +231,30 @@ void ULANSessionSubsystem::OnLeaveSessionComplete(FName SessionName, bool bWasSu
         UE_LOG(LogTemp, Warning, TEXT("Failed to leave session %s"), *SessionName.ToString());
     }
 }
-void ULANSessionSubsystem::OnSessionRequestReceived(bool bIsCreating)
+void ULANSessionSubsystem::OnSessionRequestReceived(const FSessionRequest& Request)
 {
-	bIsCreating ? CreateSession() : FindSessions();
+	switch (Request.Type)
+	{
+		case FSessionRequest::EType::Create:
+			CreateSession();
+			break;
+		case FSessionRequest::EType::Find:
+			FindSessions();
+			break;
+		case FSessionRequest::EType::Join:
+			if (Request.TargetSession)
+			{
+				JoinSession(*Request.TargetSession);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Join Session Request received but TargetSession is null"));
+			}
+			break;
+		case FSessionRequest::EType::Leave:
+			LeaveSession();
+			break;
+	}
 }
 
 void ULANSessionSubsystem::Deinitialize()

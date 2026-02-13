@@ -8,6 +8,7 @@
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h"
 #include "FindSessionsCallbackProxy.h"
+#include "SessionRequestType.h"
 #include "LANSessionSubsystem.generated.h"
 
 /**
@@ -58,7 +59,7 @@ public:
 	FOnSessionCreated OnSessionCreated;
 
 private :
-	void OnSessionRequestReceived(bool bIsCreating);
+	void OnSessionRequestReceived(const FSessionRequest& Request);
 
 	IOnlineSessionPtr SessionInterface;
 	TSharedPtr<FOnlineSessionSearch> SessionSearch;

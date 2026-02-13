@@ -9,25 +9,16 @@
 void ALobbyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(ALobbyGameState, PlayerNames);
 }
 
-void ALobbyGameState::AddPlayerName(const FString& NewName)
+void ALobbyGameState::AddPlayerState(APlayerState* PlayerState)
 {
-    if (!HasAuthority()) return;
-
-    if (!PlayerNames.Contains(NewName))
-    {
-        PlayerNames.Add(NewName);
-        MultiCast_UpdatePlayerNames(PlayerNames);
-    }
+	Super::AddPlayerState(PlayerState);	
+	OnLobbyPlayerListChanged.Broadcast();
 }
 
-// 멀티캐스트 RPC 구현
-void ALobbyGameState::MultiCast_UpdatePlayerNames_Implementation(const TArray<FString>& UpdatedNames)
+void ALobbyGameState::RemovePlayerState(APlayerState* PlayerState)
 {
-    if (UUIManagerSubsystem* UIManager = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
-    {
-        UIManager->UpdateLobbyPlayerNames(UpdatedNames);
-    }
+	Super::RemovePlayerState(PlayerState);
+	OnLobbyPlayerListChanged.Broadcast();
 }

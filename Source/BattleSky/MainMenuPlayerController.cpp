@@ -3,8 +3,6 @@
 #include "MainMenuPlayerController.h"
 #include "UIManagerSubsystem.h"
 
-static FName NAME_SessionLevel(TEXT("/Game/Levels/LobbyLevel"));
-
 void AMainMenuPlayerController::BeginPlay()
 {
 	Super::BeginPlay();

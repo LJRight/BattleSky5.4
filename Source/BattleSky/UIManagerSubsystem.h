@@ -2,10 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "SessionRequestType.h"
 #include "UIManagerSubsystem.generated.h"
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnSessionLogicRequested, const bool);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnJoinSessionRequested, const FOnlineSessionSearchResult&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSessionLogicRequested, const FSessionRequest&);
 
 UCLASS()
 class BATTLESKY_API UUIManagerSubsystem : public UGameInstanceSubsystem
@@ -23,7 +23,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void OnConfirmButtonClicked(const FString& PlayerName);
 	UFUNCTION(BlueprintCallable)
-	FORCEINLINE void OnRefreshButtonClicked() const { OnSessionLogicRequested.Broadcast(false); }
+	FORCEINLINE void OnRefreshButtonClicked() const { OnSessionLogicRequested.Broadcast(CurrentSessionRequest); }
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TSubclassOf<UUserWidget> MainMenuWidgetClass;
@@ -38,26 +38,28 @@ public:
 	void ShowSessionLobby(APlayerController* Owner, bool bIsHost);
 
 	UFUNCTION(BlueprintCallable)
-	void StartCreateFlow();
-	UFUNCTION(BlueprintCallable)
-	void StartFindFlow();
-	void StartJoinFlow(const FOnlineSessionSearchResult& TargetSession) const { OnJoinSessionRequested.Broadcast(TargetSession); }
+	void ShowNameInput(bool bIsCreating);
+
+	void StartJoinFlow(const FOnlineSessionSearchResult& TargetSession);
 	UFUNCTION(BlueprintCallable)
 	void StartLeaveFlow();
-	FOnJoinSessionRequested OnJoinSessionRequested;
 
 	UFUNCTION(BlueprintCallable)
 	void BackToMainMenu();
 
 	void SetSessionList(const TArray<FOnlineSessionSearchResult>&);
 
-	void UpdateLobbyPlayerNames(const TArray<FString>& PlayerNames);
+	void UpdateLobbyPlayerNames();
+	UFUNCTION(BlueprintCallable)
+	void StartGame();
+	
 
 private:
 	APlayerController* GetOwnerController();
 
 	void SwitchWidget(TSubclassOf<UUserWidget> NewWidgetClass);
 
+	FSessionRequest CurrentSessionRequest;
 	UUserWidget* CurrentWidget = nullptr;
 	
 	bool bIsCreatingSession;

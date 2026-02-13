@@ -26,7 +26,7 @@ public :
 private:
 	UFUNCTION()
 	void OnSessionEntryButtonClicked();
-		
+
 	FName TargetSessionName;
 	FOnlineSessionSearchResult CachedSearchResult;
 };

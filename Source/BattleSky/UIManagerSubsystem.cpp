@@ -4,6 +4,9 @@
 #include "Blueprint/UserWidget.h"
 #include "BattleSkyGameInstance.h"
 #include "SessionLobbyWidget.h"
+#include "LobbyPlayerState.h"
+#include "LobbyGameState.h"
+#include "LobbyPlayerController.h"
 
 void UUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -30,7 +33,7 @@ void UUIManagerSubsystem::OnConfirmButtonClicked(const FString& PlayerName)
     {
         GI->PlayerName = PlayerName;
 	}
-	OnSessionLogicRequested.Broadcast(bIsCreatingSession);
+	OnSessionLogicRequested.Broadcast(CurrentSessionRequest);
 }
 
 void UUIManagerSubsystem::ShowMainMenu(APlayerController* Owner)
@@ -63,26 +66,33 @@ void UUIManagerSubsystem::ShowSessionLobby(APlayerController* Owner, bool bIsHos
     {
         CurrentWidget->AddToViewport();
     }
+
+    if (UWorld* World = GetWorld())
+    {
+        if (ALobbyGameState* GS = World->GetGameState<ALobbyGameState>())
+        {
+			GS->OnLobbyPlayerListChanged.AddUObject(this, &UUIManagerSubsystem::UpdateLobbyPlayerNames);
+        }
+    }
 }
 
-void UUIManagerSubsystem::StartCreateFlow()
+void UUIManagerSubsystem::ShowNameInput(bool bIsCreating)
 {
-    bIsCreatingSession = true;
-    SwitchWidget(NameInputWidgetClass);
+    bIsCreatingSession = bIsCreating;
+	CurrentSessionRequest = FSessionRequest(bIsCreating ? FSessionRequest::EType::Create : FSessionRequest::EType::Find);
+	SwitchWidget(NameInputWidgetClass);
 }
 
-void UUIManagerSubsystem::StartFindFlow()
+void UUIManagerSubsystem::StartJoinFlow(const FOnlineSessionSearchResult& TargetSession)
 {
-    bIsCreatingSession = false;
-    SwitchWidget(NameInputWidgetClass);
+    CurrentSessionRequest = FSessionRequest(TargetSession);
+	OnSessionLogicRequested.Broadcast(CurrentSessionRequest);
 }
 
 void UUIManagerSubsystem::StartLeaveFlow()
 {
-    if (ULANSessionSubsystem* LAN = GetGameInstance()->GetSubsystem<ULANSessionSubsystem>())
-    {
-        LAN->LeaveSession();
-    }
+	CurrentSessionRequest = FSessionRequest(FSessionRequest::EType::Leave);
+    OnSessionLogicRequested.Broadcast(CurrentSessionRequest);
 }
 
 void UUIManagerSubsystem::BackToMainMenu()
@@ -103,17 +113,39 @@ void UUIManagerSubsystem::SetSessionList(const TArray<FOnlineSessionSearchResult
     }
 }
 
-void UUIManagerSubsystem::UpdateLobbyPlayerNames(const TArray<FString>& PlayerNames)
+void UUIManagerSubsystem::UpdateLobbyPlayerNames()
 {
     if(!CurrentWidget || !CurrentWidget->IsA<USessionLobbyWidget>())
     {
 		UE_LOG(LogTemp, Warning, TEXT("Current Widget is not SessionLobbyWidget"));
         return;
     }
-    if (USessionLobbyWidget* SessionLobbyWidget = Cast<USessionLobbyWidget>(CurrentWidget))
+    if (UWorld* World = GetWorld())
     {
-        SessionLobbyWidget->UpdateLobbyPlayerNames(PlayerNames);
-	}
+        if (AGameStateBase* GS = World->GetGameState())
+        {
+            TArray<FString> Names;
+            for (APlayerState* PS : GS->PlayerArray)
+            {
+                if (ALobbyPlayerState* LobbyPS = Cast<ALobbyPlayerState>(PS))
+                {
+                    Names.Add(LobbyPS->LobbyPlayerName);
+                }
+            }
+            if (USessionLobbyWidget* SessionLobbyWidget = Cast<USessionLobbyWidget>(CurrentWidget))
+            {
+                SessionLobbyWidget->UpdateLobbyPlayerNames(Names);
+            }
+        }
+    }
+}
+
+void UUIManagerSubsystem::StartGame()
+{
+    if (ALobbyPlayerController* PlayerController = Cast<ALobbyPlayerController>(GetOwnerController()))
+    {
+		PlayerController->Server_RequestStartGame();
+    }
 }
 
 void UUIManagerSubsystem::SwitchWidget(TSubclassOf<UUserWidget> NewWidgetClass)
@@ -123,7 +155,6 @@ void UUIManagerSubsystem::SwitchWidget(TSubclassOf<UUserWidget> NewWidgetClass)
         CurrentWidget->RemoveFromParent();
         CurrentWidget = nullptr;
     }
-
     if (!NewWidgetClass)
     {
         return;

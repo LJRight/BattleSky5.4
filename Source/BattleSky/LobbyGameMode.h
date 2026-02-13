@@ -15,5 +15,6 @@ class BATTLESKY_API ALobbyGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public :
-	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+	void StartGame();
 };

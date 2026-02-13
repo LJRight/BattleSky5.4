@@ -10,6 +10,9 @@
 /**
  * 
  */
+DECLARE_MULTICAST_DELEGATE(FOnLobbyPlayerListChanged);
+
+
 UCLASS()
 class BATTLESKY_API ALobbyGameState : public AGameStateBase
 {
@@ -19,12 +22,10 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	UPROPERTY(Replicated)
-	TArray<FString> PlayerNames;
+	FOnLobbyPlayerListChanged OnLobbyPlayerListChanged;
 
-	void AddPlayerName(const FString& NewPlayerName);
-
-	UFUNCTION(NetMulticast, Reliable)
-	void MultiCast_UpdatePlayerNames(const TArray<FString>& UpdatedPlayerNames);
-	void MultiCast_UpdatePlayerNames_Implementation(const TArray<FString>& UpdatedPlayerNames);
+	virtual void AddPlayerState(APlayerState* PlayerState) override;
+	virtual void RemovePlayerState(APlayerState* PlayerState) override;
+	
+	void NotifyPlayerListChanged() { OnLobbyPlayerListChanged.Broadcast(); }
 };

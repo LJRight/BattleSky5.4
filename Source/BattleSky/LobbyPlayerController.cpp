@@ -1,7 +1,9 @@
 #include "LobbyPlayerController.h"
 #include "UIManagerSubsystem.h"
 #include "LobbyGameState.h"
+#include "LobbyPlayerState.h"
 #include "BattleSkyGameInstance.h"
+#include "LobbyGameMode.h"
 
 ALobbyPlayerController::ALobbyPlayerController()
 {
@@ -14,7 +16,6 @@ void ALobbyPlayerController::BeginPlay()
 
 	if (IsLocalController())
 	{
-		/*GetWorld()->GetTimerManager().SetTimerForNextTick(this, &ALobbyPlayerController::ShowLobbyUI);*/
 		if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Lobby Player Controller Show Main Menu"));
@@ -23,15 +24,16 @@ void ALobbyPlayerController::BeginPlay()
 		bShowMouseCursor = true;
 		bEnableClickEvents = true;
 		bEnableMouseOverEvents = true;
+		
+		Server_SendLobbyPlayerName(Cast<UBattleSkyGameInstance>(GetGameInstance())->PlayerName);
 	}
-	Server_SendPlayerNameToGameState(Cast<UBattleSkyGameInstance>(GetGameInstance())->PlayerName);
 }
 
-void ALobbyPlayerController::Server_SendPlayerNameToGameState_Implementation(const FString& PlayerName)
+void ALobbyPlayerController::Server_SendLobbyPlayerName_Implementation(const FString& PlayerName)
 {
-	if (ALobbyGameState* GS = GetWorld()->GetGameState<ALobbyGameState>())
+	if (ALobbyPlayerState*  LobbyPlayerState = GetPlayerState<ALobbyPlayerState>())
 	{
-		GS->AddPlayerName(PlayerName);
+		LobbyPlayerState->SetLobbyPlayerName(PlayerName);
 	}
 }
 
@@ -41,5 +43,17 @@ void ALobbyPlayerController::ShowLobbyUI()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Lobby Player Controller Show Main Menu"));
 		UI->ShowSessionLobby(this, HasAuthority());
+	}
+}
+
+void ALobbyPlayerController::Server_RequestStartGame_Implementation()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	if (ALobbyGameMode* GM = Cast< ALobbyGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GM->StartGame();
 	}
 }
