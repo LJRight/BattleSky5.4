@@ -28,6 +28,14 @@ const static FName NAME_Layering_Arm_R_LS("Layering_Arm_R_LS");
 
 const static FName NAME_Weight_Gait("Weight_Gait");
 
+const static FName NAME_Enable_Transition("Enable_Transition");
+
+// 본 이름에 맞게 소켓 이름 바꿀것?
+const static FName NAME_IK_Foot_L("ik_foot_l");
+const static FName NAME_IK_Foot_R("ik_foot_r");
+const static FName NAME_VB_Foot_Target_L("VB foot_target_l");
+const static FName NAME_VB_Foot_Target_R("VB foot_target_r");
+
 void UBattleSkyAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
@@ -37,7 +45,6 @@ void UBattleSkyAnimInstance::NativeInitializeAnimation()
 void UBattleSkyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
-	
 	Delta = DeltaSeconds;
 	if (Delta != 0.f)
 	{
@@ -52,7 +59,7 @@ void UBattleSkyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			{
 				ShouldMove = ShouldMoveCheck();
 				bool bChanged = ShouldMove == PrevShouldMove;
-				
+
 				// 움직임 여부 상태가 변화했는지,
 				if (bChanged)
 				{
@@ -75,7 +82,29 @@ void UBattleSkyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 				// 멈춰 있는 동안
 				else
 				{
+					if(CanRotateInPlace())
+					{
+						RotateInPlaceCheck();
+					}
+					else
+					{
+						Rotate_L = false;
+						Rotate_R = false;
+					}
+					
+					if(CanTurnInPlace())
+					{
+						TurnInPlaceCheck();
+					}
+					else
+					{
+						ElapsedDelayTime = 0.f;
+					}
 
+					if(CanDynamicTransition())
+					{
+						DynamicTransitionCheck();
+					}
 				}
 
 				PrevShouldMove = ShouldMove;
@@ -236,18 +265,210 @@ float UBattleSkyAnimInstance::CalculateStandingPlayRate()
 		Speed / AnimatedSprintSpeed,
 		FMath::Clamp(GetCurveValue(NAME_Weight_Gait) - 2.f, 0.f, 1.f)
 	);
-	return FMath::Clamp(SprintPlayRate / StrideBlend / GetOwningComponent()->GetComponentScale().Z, 0.f, 3.f);
+	float Result;
+	Result = FMath::Clamp(SprintPlayRate / StrideBlend / GetOwningComponent()->GetComponentScale().Z, 0.f, 3.f);
+	return Result;
 }
 
 float UBattleSkyAnimInstance::CalculateCrouchingPlayRate()
 {
-	FMath::Clamp(Speed / AnimatedCrouchSpeed / StrideBlend / GetOwningComponent()->GetComponentScale().Z, 0.f, 2.f);
+	float Result;
+	Result = FMath::Clamp(Speed / AnimatedCrouchSpeed / StrideBlend / GetOwningComponent()->GetComponentScale().Z, 0.f, 2.f);
+	return Result;
 }
 
 void UBattleSkyAnimInstance::UpdateRotationValues()
 {
-	
+	MovementDirection = CalculateMovementDirection();
+	const float ControlRotationDeltaYaw = (FRotationMatrix::MakeFromX(Velocity).Rotator() - OwningCharacter->GetControlRotation()).Yaw;
 
+	const FVector FBYawVector = YawOffset_FB->GetVectorValue(ControlRotationDeltaYaw);
+	const FVector LRYawVector = YawOffset_LR->GetVectorValue(ControlRotationDeltaYaw);
+	FYaw = FBYawVector.X;
+	BYaw = FBYawVector.Y;
+	LYaw = LRYawVector.X;
+	RYaw = LRYawVector.Y;
+}
+
+EMovementDirection UBattleSkyAnimInstance::CalculateMovementDirection() const
+{
+	EMovementDirection Result;
+	if(Gait == EGait::Sprinting)
+	{
+		Result = EMovementDirection::Forward;
+	}
+	else
+	{
+		const FRotator RotationDelta = FRotationMatrix::MakeFromX(Velocity).Rotator() - AimingRotation;
+		Result = CalculateQuadrant(
+			MovementDirection,
+			// 아래 네 값은 애니메이션 전환 간 임계값으로 변수로 설정하여 조정할 수 있다
+			70.f,
+			-70.f,
+			110.f,
+			-110.f,
+			5.f,
+			RotationDelta.Yaw
+		);
+	}
+	return Result;
+}
+
+EMovementDirection UBattleSkyAnimInstance::CalculateQuadrant(
+	const EMovementDirection Current, 
+	const float FR_Threshold,
+	const float FL_Threshold, 
+	const float BR_Threshold, 
+	const float BL_Threshold, 
+	const float Buffer,
+	const float Angle) const
+{
+	if (AngleInRange(Angle, FL_Threshold, FR_Threshold, Buffer, Current != EMovementDirection::Forward || Current != EMovementDirection::Backward))
+	{
+		return EMovementDirection::Forward;
+	}
+	else if (AngleInRange(Angle, FR_Threshold, BR_Threshold, Buffer, Current != EMovementDirection::Right || Current != EMovementDirection::Left))
+	{
+		return EMovementDirection::Right;
+	}
+	else if(AngleInRange(Angle, BL_Threshold, FL_Threshold, Buffer, Current != EMovementDirection::Right || Current != EMovementDirection::Left))
+	{
+		return EMovementDirection::Left;
+	}
+	else
+	{
+		return EMovementDirection::Backward;
+	}
+}
+
+bool UBattleSkyAnimInstance::AngleInRange(const float Angle, const float MinAngle, const float MaxAngle, const float Buffer, const bool IncreaseBuffer) const
+{
+	bool Result;
+	if (IncreaseBuffer)
+	{
+		Result = Angle >= MinAngle - Buffer && Angle <= MaxAngle + Buffer;
+	}
+	else
+	{
+		Result = Angle >= MinAngle + Buffer && Angle <= MaxAngle - Buffer;
+	}
+	return Result;
+}
+
+bool UBattleSkyAnimInstance::CanTurnInPlace() const
+{
+	return ViewMode == EViewMode::FirstPerson && GetCurveValue(NAME_Enable_Transition) > 0.99f;
+}
+
+bool UBattleSkyAnimInstance::CanDynamicTransition() const
+{
+	return GetCurveValue(NAME_Enable_Transition) == 1.f;
+}
+
+void UBattleSkyAnimInstance::RotateInPlaceCheck()
+{
+	Rotate_L = AimingAngle.X < RotateMinThreshold;
+	Rotate_R = AimingAngle.X > RotateMaxThreshold;
+
+	if(Rotate_L || Rotate_R)
+	{
+		RotateRate = FMath::GetMappedRangeValueClamped(FVector2D(AimYawRateMinRange, AimYawRateMaxRange), FVector2D(MinPlayRate, MaxPlayRate), AimYawRate);
+	}
+}
+
+void UBattleSkyAnimInstance::TurnInPlaceCheck()
+{
+	const float AimingDiffAmount = FMath::Abs(AimingAngle.X);
+	if (AimingDiffAmount > TurnCheckMinAngle && AimYawRate < AimYawRateLimit)
+	{
+		ElapsedDelayTime += Delta;
+		const float RequiredTurnDelay = FMath::GetMappedRangeValueClamped(FVector2D(TurnCheckMinAngle, 180.f), FVector2D(MinAngleDelay, MaxAngleDelay), AimingDiffAmount);
+		if(ElapsedDelayTime > RequiredTurnDelay)
+		{
+			TurnInPlace(AimingRotation, 1.f, 0.f, false);
+		}
+	}
+	else
+	{
+		ElapsedDelayTime = 0.f;
+	}
+	return;
+}
+
+void UBattleSkyAnimInstance::TurnInPlace(const FRotator TargetRotation, const float PlayRateScale, const float StartTime, const bool OverrideCurrent)
+{
+	const float TurnAngle = (TargetRotation - OwningCharacter->GetActorRotation()).Yaw;
+	FTurnInPlace* TargetTurnInPlacePtr = nullptr;
+	if (FMath::Abs(TurnAngle) < Turn180Threshold)
+	{
+		if(TurnAngle < 0.f)
+		{
+			TargetTurnInPlacePtr = Stance == EStance::Standing ? &N_TurnInPlace_L_90 : &CLF_TurnInPlace_L_90;
+		}
+		else
+		{
+			TargetTurnInPlacePtr = Stance == EStance::Standing ? &N_TurnInPlace_R_90 : &CLF_TurnInPlace_R_90;
+		}
+	}
+	else
+	{
+		if (TurnAngle < 0.f)
+		{
+			TargetTurnInPlacePtr = Stance == EStance::Standing ? &N_TurnInPlace_L_180 : &CLF_TurnInPlace_L_180;
+		}
+		else
+		{
+			TargetTurnInPlacePtr = Stance == EStance::Standing ? &N_TurnInPlace_R_180 : &CLF_TurnInPlace_R_180;
+		}
+	}
+	if (!TargetTurnInPlacePtr->Animation)
+	{
+		return;
+	}
+
+	if (OverrideCurrent || !IsPlayingSlotAnimation(TargetTurnInPlacePtr->Animation, TargetTurnInPlacePtr->SlotName))
+	{
+		PlaySlotAnimationAsDynamicMontage(
+			TargetTurnInPlacePtr->Animation,
+			TargetTurnInPlacePtr->SlotName,
+			0.2f,
+			0.2f,
+			TargetTurnInPlacePtr->PlayRate * PlayRateScale,
+			1,
+			0.f,
+			StartTime
+		);
+
+		if(TargetTurnInPlacePtr->ScaleTurnAngle)
+		{
+			RotationScale = (TurnAngle / TargetTurnInPlacePtr->AnimatedAngle) * TargetTurnInPlacePtr->PlayRate * PlayRateScale;
+		}
+		else
+		{
+			RotationScale = TargetTurnInPlacePtr->PlayRate * PlayRateScale;
+		}
+	}
+}
+
+void UBattleSkyAnimInstance::DynamicTransitionCheck()
+{
+	USkeletalMeshComponent* Mesh = GetOwningComponent();
+	if (Mesh)
+	{
+		const FVector IK_L_FootLocation = Mesh->GetBoneTransform(NAME_IK_Foot_L, ERelativeTransformSpace::RTS_Component).GetLocation();
+		const FVector VB_L_FootLocation = Mesh->GetBoneTransform(NAME_VB_Foot_Target_L, ERelativeTransformSpace::RTS_Component).GetLocation();
+		if (FVector::Distance(IK_L_FootLocation, VB_L_FootLocation) > 8.f)
+		{
+			PlayDynamicTransition(0.1f, DynamicTransition_L);
+		}
+
+		const FVector IK_R_FootLocation = Mesh->GetBoneTransform(NAME_IK_Foot_R, ERelativeTransformSpace::RTS_Component).GetLocation();
+		const FVector VB_R_FootLocation = Mesh->GetBoneTransform(NAME_VB_Foot_Target_R, ERelativeTransformSpace::RTS_Component).GetLocation();
+		if (FVector::Distance(IK_R_FootLocation, VB_R_FootLocation) > 8.f)
+		{
+			PlayDynamicTransition(0.1f, DynamicTransition_R);
+		}
+	}
 }
 
 //// 현재 프레임과 이전 프레임의 속도 차이를 이용해 가속도를 계산한다

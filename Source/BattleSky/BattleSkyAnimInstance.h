@@ -31,6 +31,36 @@ struct FVelocityBlend
 };
 
 USTRUCT(BlueprintType)
+struct FTurnInPlace
+{
+	GENERATED_BODY()
+	FTurnInPlace(UAnimSequenceBase* Animation = nullptr, float AnimatedAngle = 0.f, FName SlotName = "", float PlayRate = 0.f, bool ScaleTurnAngle = 0.f)
+		: Animation(Animation), AnimatedAngle(AnimatedAngle), SlotName(SlotName), PlayRate(PlayRate), ScaleTurnAngle(ScaleTurnAngle)
+	{
+	}
+	UAnimSequenceBase* Animation;
+	float AnimatedAngle;
+	FName SlotName;
+	float PlayRate;
+	bool ScaleTurnAngle;
+};
+
+USTRUCT(BlueprintType)
+struct FDynamicMontageParams
+{
+	GENERATED_BODY()
+	FDynamicMontageParams(UAnimSequenceBase* Animation = nullptr, float BlendInTime = 0.f, float BlendOutTime = 0.f, float PlayRate = 0.f, float StartTime = 0.f)
+		: Animation(Animation), BlendInTime(BlendInTime), BlendOutTime(BlendOutTime), PlayRate(PlayRate), StartTime(StartTime)
+	{
+	}
+	UAnimSequenceBase* Animation;
+	float BlendInTime;
+	float BlendOutTime;
+	float PlayRate;
+	float StartTime;
+};
+
+USTRUCT(BlueprintType)
 struct FLeanAmount
 {
 	GENERATED_BODY()
@@ -50,6 +80,15 @@ struct FLeanAmount
 
 };
 
+UENUM(BlueprintType)
+enum class EMovementDirection : uint8
+{
+	Forward UMETA(DisplayName = "Forward"), 
+	Backward UMETA(DisplayName = "Backward"),
+	Left UMETA(DisplayName = "Left"),
+	Right UMETA(DisplayName = "Right")
+};
+
 UCLASS()
 class BATTLESKY_API UBattleSkyAnimInstance : public UAnimInstance
 {
@@ -58,6 +97,10 @@ class BATTLESKY_API UBattleSkyAnimInstance : public UAnimInstance
 public:
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 	virtual void NativeInitializeAnimation() override;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void PlayDynamicTransition(const float ReTriggerDelay, const FDynamicMontageParams Parameters);
+
 protected:
 	float Delta;
 	ACharacter* OwningCharacter;
@@ -79,7 +122,20 @@ private:
 	float CalculateCrouchingPlayRate();
 
 	void UpdateRotationValues();
+	EMovementDirection CalculateMovementDirection() const;
+	EMovementDirection CalculateQuadrant(const EMovementDirection Current, const float FR_Threshold, const float FL_Threshold, const float BR_Threshold, const float BL_Threshold, const float Buffer, const float Angle) const;
+	bool AngleInRange(const float Angle, const float MinAngle, const float MaxAngle, const float Buffer, const bool IncreaseBuffer) const;
 
+	FORCEINLINE bool CanRotateInPlace() const { return RotationMode == ERotationMode::Aiming || ViewMode == EViewMode::FirstPerson; };
+	bool CanTurnInPlace() const;
+	bool CanDynamicTransition() const;
+
+	void RotateInPlaceCheck();
+	void TurnInPlaceCheck();
+	void TurnInPlace(const FRotator TargetRotation, const float PlayRateScale, const float StartTime, const bool OverrideCurrent);
+	void DynamicTransitionCheck();
+
+	
 	// FVector CalculateAcceleration(const FVector& CurrentVelocity, float DeltaSeconds) const;
 
 	// Character Information
@@ -108,6 +164,9 @@ private:
 
 	// Anim Graph - Grounded
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	EMovementDirection MovementDirection;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	FVector RelativeAccelerationAmount;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	bool ShouldMove;
@@ -135,6 +194,14 @@ private:
 	FVelocityBlend VelocityBlend;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	FLeanAmount	LeanAmount;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float FYaw;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float BYaw;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float LYaw;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	float RYaw;
 
 
 
@@ -248,6 +315,39 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
 	float MaxAngleDelay;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	FTurnInPlace N_TurnInPlace_L_90;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	FTurnInPlace N_TurnInPlace_R_90;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	FTurnInPlace N_TurnInPlace_L_180;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	FTurnInPlace N_TurnInPlace_R_180;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	FTurnInPlace CLF_TurnInPlace_L_90;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	FTurnInPlace CLF_TurnInPlace_R_90;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	FTurnInPlace CLF_TurnInPlace_L_180;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	FTurnInPlace CLF_TurnInPlace_R_180;
+
+
+
+	// Rotate In Place
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotate In Place", meta = (AllowPrivateAccess = "true"))
+	float RotateMinThreshold;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotate In Place", meta = (AllowPrivateAccess = "true"))
+	float RotateMaxThreshold;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotate In Place", meta = (AllowPrivateAccess = "true"))
+	float AimYawRateMinRange;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotate In Place", meta = (AllowPrivateAccess = "true"))
+	float AimYawRateMaxRange;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotate In Place", meta = (AllowPrivateAccess = "true"))
+	float MinPlayRate;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotate In Place", meta = (AllowPrivateAccess = "true"))
+	float MaxPlayRate;
+
 
 	// Blend Curves
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blend Curves", meta = (AllowPrivateAccess = "true"))
@@ -289,5 +389,12 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "User Option", meta = (AllowPrivateAccess = "true"))
 	float InputYawOffsetInterpSpeed;
 
-	
+	// Dynamic Additive Transition 
+	// ALS 에서 DynamicTransitionCheck 함수 내 이벤트 호출 시 입력 파라미터 보고, 에디터에서 구조체 설정하기
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dynamic Additive Transition", meta = (AllowPrivateAccess = "true"))
+	FDynamicMontageParams DynamicTransition_L;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dynamic Additive Transition", meta = (AllowPrivateAccess = "true"))
+	FDynamicMontageParams DynamicTransition_R;
+
 };
