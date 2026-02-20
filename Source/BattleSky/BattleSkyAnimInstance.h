@@ -15,9 +15,13 @@ struct FVelocityBlend
 		: F(F), B(B), L(L), R(R) 
 	{
 	}
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float F;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float B;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float L;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float R;
 	FVelocityBlend Interp(const FVelocityBlend& Target, float InterpSpeed, float DeltaTime) const
 	{
@@ -38,10 +42,15 @@ struct FTurnInPlace
 		: Animation(Animation), AnimatedAngle(AnimatedAngle), SlotName(SlotName), PlayRate(PlayRate), ScaleTurnAngle(ScaleTurnAngle)
 	{
 	}
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	UAnimSequenceBase* Animation;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float AnimatedAngle;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	FName SlotName;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float PlayRate;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	bool ScaleTurnAngle;
 };
 
@@ -53,10 +62,15 @@ struct FDynamicMontageParams
 		: Animation(Animation), BlendInTime(BlendInTime), BlendOutTime(BlendOutTime), PlayRate(PlayRate), StartTime(StartTime)
 	{
 	}
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	UAnimSequenceBase* Animation;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float BlendInTime;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float BlendOutTime;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float PlayRate;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float StartTime;
 };
 
@@ -68,7 +82,9 @@ struct FLeanAmount
 		: LR(LR), FB(FB)
 	{
 	}
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float LR;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 	float FB;
 	FLeanAmount Interp(const FLeanAmount& Target, float InterpSpeed, float DeltaTime) const
 	{
@@ -87,6 +103,17 @@ enum class EMovementDirection : uint8
 	Backward UMETA(DisplayName = "Backward"),
 	Left UMETA(DisplayName = "Left"),
 	Right UMETA(DisplayName = "Right")
+};
+
+UENUM(BlueprintType)
+enum class EHipsDirection : uint8
+{
+	F UMETA(DisplayName = "F"),
+	B UMETA(DisplayName = "B"),
+	RF UMETA(DisplayName = "RF"),
+	RB UMETA(DisplayName = "RB"),
+	LF UMETA(DisplayName = "LF"),
+	LB UMETA(DisplayName = "LB")
 };
 
 UCLASS()
@@ -165,6 +192,8 @@ private:
 	// Anim Graph - Grounded
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	EMovementDirection MovementDirection;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	EHipsDirection HipsDirection;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	FVector RelativeAccelerationAmount;

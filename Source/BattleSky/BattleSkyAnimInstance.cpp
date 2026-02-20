@@ -212,6 +212,8 @@ void UBattleSkyAnimInstance::UpdateMovementValues()
 	// Interp and set the Velocity Blend
 	VelocityBlend = VelocityBlend.Interp(CalculateVelocityBlend(), VelocityBlendInterpSpeed, Delta);
 
+	// UE_LOG(LogTemp, Warning, TEXT("Velocity Blend - F : %f / B : %f / L : %f / R : %f"), VelocityBlend.F, VelocityBlend.B, VelocityBlend.L, VelocityBlend.R);
+
 	// Set the Diagnal Scale Amount
 	DiagonalScaleAmount = DiagonalScaleAmountCurve->GetFloatValue(FMath::Abs(VelocityBlend.F + VelocityBlend.B));
 
@@ -242,6 +244,8 @@ void UBattleSkyAnimInstance::UpdateMovementValues()
 FVelocityBlend UBattleSkyAnimInstance::CalculateVelocityBlend()
 {
 	const FVector LocalRelativeVelocityDirection = OwningCharacter->GetActorRotation().UnrotateVector(Velocity.GetSafeNormal(.1f));
+
+	UE_LOG(LogTemp, Warning, TEXT("LocalRelativeVelocityDirection : %s"), *LocalRelativeVelocityDirection.ToString());
 	const float Sum = FMath::Abs(LocalRelativeVelocityDirection.X) + FMath::Abs(LocalRelativeVelocityDirection.Y) + FMath::Abs(LocalRelativeVelocityDirection.Z);
 	const FVector RelativeDirection = LocalRelativeVelocityDirection / Sum;
 

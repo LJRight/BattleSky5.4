@@ -82,6 +82,10 @@ void ABattleSkyCharacter::DoMove(const FInputActionValue& Value)
 	}
 }
 
+void ABattleSkyCharacter::DoWalk(const FInputActionValue& Value)
+{
+}
+
 void ABattleSkyCharacter::DoCrouch(const FInputActionValue& Value)
 {
 }

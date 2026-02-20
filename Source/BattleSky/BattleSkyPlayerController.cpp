@@ -77,7 +77,15 @@ void ABattleSkyPlayerController::Tick(float DeltaTime)
 
 void ABattleSkyPlayerController::OnMove(const FInputActionValue& Value)
 {
-	GetPawn<ABattleSkyCharacter>()->DoMove(Value);
+	
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>()) 
+	{
+		BSCharacter->DoMove(Value);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Can't Find Character"));
+	}
 }
 
 void ABattleSkyPlayerController::OnMouseLook(const FInputActionValue& Value)
@@ -109,7 +117,10 @@ void ABattleSkyPlayerController::OnProne(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnWalk(const FInputActionValue& Value)
 {
-	
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->DoWalk(Value);
+	}
 }
 
 void ABattleSkyPlayerController::OnSprint(const FInputActionValue& Value)

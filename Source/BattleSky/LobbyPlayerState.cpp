@@ -8,7 +8,7 @@
 void ALobbyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ALobbyPlayerState, LobbyPlayerName)
+	DOREPLIFETIME(ALobbyPlayerState, LobbyPlayerName);
 }
 
 void ALobbyPlayerState::SetLobbyPlayerName(const FString& NewName)
