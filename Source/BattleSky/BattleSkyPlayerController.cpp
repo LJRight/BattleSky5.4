@@ -125,6 +125,10 @@ void ABattleSkyPlayerController::OnWalk(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnSprint(const FInputActionValue& Value)
 {
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->DoSprint(Value);
+	}
 }
 
 void ABattleSkyPlayerController::OnFreeLook(const FInputActionValue& Value)

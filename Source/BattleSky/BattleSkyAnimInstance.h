@@ -125,7 +125,10 @@ public:
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 	virtual void NativeInitializeAnimation() override;
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void PlayTransition(const FDynamicMontageParams Parameters);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void PlayDynamicTransition(const float ReTriggerDelay, const FDynamicMontageParams Parameters);
 
 protected:
@@ -137,6 +140,12 @@ private:
 	void UpdateAimingValues();
 	void UpdateLayerValues();
 	void UpdateFootIK();
+	void SetFootLocking(const FName EnableFootIKCurve, const FName FootLockCurve, const FName IKFootBone, float& CurrentFootLockAlpha, FVector& CurrentFootLockLocation, FRotator& CurrentFootLockRotation);
+	void SetFootOffsets(const FName EnableFootIKCurve, const FName IKFootBone, const FName RootBone, FVector& CurrentLocationTarget, FVector& CurrentLocationOffset, FRotator& CurrentRotationOffset);
+	void SetFootLockOffsets(FVector& CurrentFootLockLocation, FRotator& CurrentFootLockRotation);
+	void SetPelvisIKOffset(const FVector FootOffset_L_Target, const FVector FootOffset_R_Target);
+	void ResetIKOffsets();
+
 
 	bool ShouldMoveCheck() const;
 
@@ -190,11 +199,10 @@ private:
 	float ZoomAmount;
 
 	// Anim Graph - Grounded
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	EMovementDirection MovementDirection;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	EHipsDirection HipsDirection;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	FVector RelativeAccelerationAmount;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
@@ -203,7 +211,7 @@ private:
 	bool Rotate_L;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	bool Rotate_R;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	bool Pivot;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	float RotateRate;
@@ -329,19 +337,49 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Layer Blending)", meta = (AllowPrivateAccess = "true"))
 	float Enable_HandIK_R;
 
+	// Anim Graph - Foot IK
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	float FootLock_L_Alpha;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	float FootLock_R_Alpha;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FVector FootLock_L_Location;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FVector FootLock_R_Location;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FRotator FootLock_L_Rotation;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FRotator FootLock_R_Rotation;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FVector FootOffset_L_Location;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FVector FootOffset_R_Location;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FRotator FootOffset_L_Rotation;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FRotator FootOffset_R_Rotation;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	FVector PelvisOffset;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Foot IK)", meta = (AllowPrivateAccess = "true"))
+	float PelvisAlpha;
+
+
 
 	// Turn In Place
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
 	float TurnCheckMinAngle;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
 	float Turn180Threshold;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
 	float AimYawRateLimit;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
 	float ElapsedDelayTime;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
 	float MinAngleDelay;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
 	float MaxAngleDelay;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
@@ -360,7 +398,6 @@ private:
 	FTurnInPlace CLF_TurnInPlace_L_180;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
 	FTurnInPlace CLF_TurnInPlace_R_180;
-
 
 
 	// Rotate In Place
@@ -417,6 +454,18 @@ private:
 	float SmoothedAimingRotationInterpSpeed = 10.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "User Option", meta = (AllowPrivateAccess = "true"))
 	float InputYawOffsetInterpSpeed;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "User Option", meta = (AllowPrivateAccess = "true"))
+	float TriggerPivotSpeedLimit;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "User Option", meta = (AllowPrivateAccess = "true"))
+	float FootHeight;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "User Option", meta = (AllowPrivateAccess = "true"))
+	float IK_TraceDistanceAboveFoot;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "User Option", meta = (AllowPrivateAccess = "true"))
+	float IK_TraceDistanceBelowFoot;
+
 
 	// Dynamic Additive Transition 
 	// ALS 에서 DynamicTransitionCheck 함수 내 이벤트 호출 시 입력 파라미터 보고, 에디터에서 구조체 설정하기

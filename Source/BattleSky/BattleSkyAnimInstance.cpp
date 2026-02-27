@@ -3,6 +3,7 @@
 
 #include "BattleSkyAnimInstance.h"
 #include "BattleSkyCharacter.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 const static FName NAME_Mask_AimOffset("Mask_AimOffset");
@@ -30,11 +31,19 @@ const static FName NAME_Weight_Gait("Weight_Gait");
 
 const static FName NAME_Enable_Transition("Enable_Transition");
 
+const static FName NAME_Enable_FootIK_L("Enable_FootIK_L");
+const static FName NAME_FootLock_L("FootLock_L");
+
+const static FName NAME_Enable_FootIK_R("Enable_FootIK_R");
+const static FName NAME_FootLock_R("FootLock_R");
+
 // 본 이름에 맞게 소켓 이름 바꿀것?
 const static FName NAME_IK_Foot_L("ik_foot_l");
 const static FName NAME_IK_Foot_R("ik_foot_r");
 const static FName NAME_VB_Foot_Target_L("VB foot_target_l");
 const static FName NAME_VB_Foot_Target_R("VB foot_target_r");
+
+const static FName NAME_RootBone("root");
 
 void UBattleSkyAnimInstance::NativeInitializeAnimation()
 {
@@ -129,13 +138,18 @@ void UBattleSkyAnimInstance::UpdateCharacterInfo()
 	MovementInputAmount = MovementInput.Size() / OwningCharacter->GetCharacterMovement()->GetMaxAcceleration();
 	HasMovementInput = MovementInputAmount > 0;
 	AimingRotation = OwningCharacter->GetControlRotation();
-	AimYawRate = (AimingRotation.Yaw - PreviousAimYaw) / Delta;
+	AimYawRate = FMath::Abs((AimingRotation.Yaw - PreviousAimYaw) / Delta);
+	
+	// 현재 프레임의 속도와 조준 회전값을 이전 프레임의 값으로 저장한다. 다음 프레임에서 이 값을 이용해 가속도와 조준 회전 속도를 계산할 것이다
+	PreviousVelocity = Velocity;
+	PreviousAimYaw = AimingRotation.Yaw;
 
 	if(ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(OwningCharacter))
 	{
 		MovementState = BattleSkyCharacter->MovementState;
 		PrevMovementState = BattleSkyCharacter->PrevMovementState;
 		MovementAction = BattleSkyCharacter->MovementAction;
+		RotationMode = BattleSkyCharacter->RotationMode;
 		Gait = BattleSkyCharacter->Gait;
 		Stance = BattleSkyCharacter->Stance;
 		OverlayState = BattleSkyCharacter->OverlayState;
@@ -148,10 +162,10 @@ void UBattleSkyAnimInstance::UpdateAimingValues()
 
 	const FRotator ActorRotation = OwningCharacter->GetActorRotation();
 
-	const FRotator DeltaAimingRotation = AimingRotation - ActorRotation;
+	const FRotator DeltaAimingRotation = UKismetMathLibrary::NormalizedDeltaRotator(AimingRotation, ActorRotation);
 	AimingAngle = FVector2D(DeltaAimingRotation.Yaw, DeltaAimingRotation.Pitch);
 
-	const FRotator DeltaSmoothedAimingRotation = SmoothedAimingRotation - ActorRotation;
+	const FRotator DeltaSmoothedAimingRotation = UKismetMathLibrary::NormalizedDeltaRotator(SmoothedAimingRotation, ActorRotation);
 	SmoothedAimingAngle = FVector2D(DeltaSmoothedAimingRotation.Yaw, DeltaSmoothedAimingRotation.Pitch);
 
 	if(RotationMode != ERotationMode::VelocityDirection)
@@ -160,7 +174,7 @@ void UBattleSkyAnimInstance::UpdateAimingValues()
 
 		// Use the Aiming Yaw Angle divided by the number of spine + pelvis bones to get the amount of 
 		// spine rotation needed to remain facing the camera direction
-		SpineRotation.Yaw = AimingAngle.X / 4.0f;
+		SpineRotation = FRotator(0.f, AimingAngle.X / 4.0f, 0.f);
 	}
 	const float YawTime = FMath::Abs(SmoothedAimingAngle.X);
 	LeftYawTime = FMath::GetMappedRangeValueClamped(FVector2D(0.f, 180.f), FVector2D(.5f, 0.f), YawTime);
@@ -200,6 +214,139 @@ void UBattleSkyAnimInstance::UpdateLayerValues()
 
 void UBattleSkyAnimInstance::UpdateFootIK()
 {
+	SetFootLocking(NAME_Enable_FootIK_L, NAME_FootLock_L, NAME_IK_Foot_L, FootLock_L_Alpha, FootLock_L_Location, FootLock_L_Rotation);
+	SetFootLocking(NAME_Enable_FootIK_R, NAME_FootLock_R, NAME_IK_Foot_R, FootLock_R_Alpha, FootLock_R_Location, FootLock_R_Rotation);
+	if(MovementState == EMovementState::InAir)
+	{
+		SetPelvisIKOffset(FVector::ZeroVector, FVector::ZeroVector);
+		ResetIKOffsets();
+	}
+	else
+	{
+		FVector FootOffset_L_Target;
+		FVector FootOffset_R_Target;
+		SetFootOffsets(NAME_Enable_FootIK_L, NAME_IK_Foot_L, NAME_RootBone, FootOffset_L_Target, FootOffset_L_Location, FootOffset_L_Rotation);
+		SetFootOffsets(NAME_Enable_FootIK_R, NAME_IK_Foot_R, NAME_RootBone, FootOffset_R_Target, FootOffset_R_Location, FootOffset_R_Rotation);
+		SetPelvisIKOffset(FootOffset_L_Target, FootOffset_R_Target);
+	}
+}
+
+void UBattleSkyAnimInstance::SetFootLocking(const FName EnableFootIKCurve, const FName FootLockCurve, const FName IKFootBone, float& CurrentFootLockAlpha, FVector& CurrentFootLockLocation, FRotator& CurrentFootLockRotation)
+{
+	if (GetCurveValue(EnableFootIKCurve) > 0.f)
+	{
+		const float FootLockCurveValue = GetCurveValue(FootLockCurve);
+		
+		if (FootLockCurveValue >= 0.99f || FootLockCurveValue < CurrentFootLockAlpha)
+		{
+			CurrentFootLockAlpha = FootLockCurveValue;
+		}
+
+		if (CurrentFootLockAlpha > 0.99f)
+		{
+			const FTransform TargetTransform = GetOwningComponent()->GetSocketTransform(IKFootBone, ERelativeTransformSpace::RTS_Component);
+			CurrentFootLockLocation = TargetTransform.GetLocation();
+			CurrentFootLockRotation = TargetTransform.GetRotation().Rotator();
+		}
+
+		if(CurrentFootLockAlpha > 0.f)
+		{
+			CurrentFootLockAlpha = FMath::Clamp(CurrentFootLockAlpha, 0.f, 1.f);
+			SetFootLockOffsets(CurrentFootLockLocation, CurrentFootLockRotation);
+		}
+	}
+}
+
+void UBattleSkyAnimInstance::SetFootOffsets(const FName EnableFootIKCurve, const FName IKFootBone, const FName RootBone, FVector& CurrentLocationTarget, FVector& CurrentLocationOffset, FRotator& CurrentRotationOffset)
+{
+	if(GetCurveValue(EnableFootIKCurve) > 0.f)
+	{
+		const FVector IKFootBoneLocation = GetOwningComponent()->GetSocketLocation(IKFootBone);
+		const FVector RootBoneLocation = GetOwningComponent()->GetSocketLocation(RootBone);
+		const FVector IKFootFloorLocation = FVector(IKFootBoneLocation.X, IKFootBoneLocation.Y, RootBoneLocation.Z);
+
+		const FVector TraceStartLocation = IKFootFloorLocation + FVector(0.f, 0.f, IK_TraceDistanceAboveFoot);
+		const FVector TraceEndLocation = IKFootFloorLocation - FVector(0.f, 0.f, IK_TraceDistanceBelowFoot);
+
+		FHitResult FootIK_TraceResult;
+		FCollisionQueryParams FootIK_TraceParams = FCollisionQueryParams(FName(TEXT("FootIKTrace")), false, OwningCharacter);
+
+		GetWorld()->LineTraceSingleByChannel(
+			FootIK_TraceResult,
+			TraceStartLocation,
+			TraceEndLocation,
+			ECC_Visibility
+		);
+
+		FVector ImpactPoint;
+		FVector ImpactNormal;
+
+		FRotator TargetRotationOffset;
+
+		if (UCharacterMovementComponent* CharacterMovement = OwningCharacter->GetCharacterMovement())
+		{
+			if(CharacterMovement->IsWalkable(FootIK_TraceResult))
+			{
+				ImpactPoint = FootIK_TraceResult.ImpactPoint;
+				ImpactNormal = FootIK_TraceResult.ImpactNormal;
+
+				CurrentLocationTarget = (ImpactNormal * FootHeight + ImpactPoint) - (IKFootFloorLocation + FVector(0.f, 0.f, 1.f) * FootHeight);
+				TargetRotationOffset = FRotator(FMath::Atan2(ImpactNormal.Y, ImpactNormal.Z), 0.f, -FMath::Atan2(ImpactNormal.X, ImpactNormal.Z));
+			}
+		}
+		
+		const float LocationOffsetInterpSpeed = CurrentLocationOffset.Z > CurrentLocationTarget.Z ? 30.f : 15.f;
+		CurrentLocationOffset = FMath::VInterpTo(CurrentLocationOffset, CurrentLocationTarget, Delta, LocationOffsetInterpSpeed);
+
+		CurrentRotationOffset = FMath::RInterpTo(CurrentRotationOffset, TargetRotationOffset, Delta, 30.f);
+	}
+	else
+	{
+		CurrentLocationOffset = FVector::ZeroVector;
+		CurrentRotationOffset = FRotator::ZeroRotator;
+	}
+}
+
+void UBattleSkyAnimInstance::SetFootLockOffsets(FVector& LocalLocation, FRotator& LocalRotation)
+{
+	const UCharacterMovementComponent* CharacterMovement = OwningCharacter->GetCharacterMovement();
+	if (!CharacterMovement)
+	{
+		return;
+	}
+
+	FRotator RotationDifference;
+	if (CharacterMovement->IsMovingOnGround())
+	{
+		RotationDifference = OwningCharacter->GetActorRotation() - CharacterMovement->GetLastUpdateRotation();
+	}
+	const FVector LocationDifference = GetOwningComponent()->GetComponentRotation().UnrotateVector(Velocity * Delta);
+	LocalLocation = (LocalLocation - LocationDifference).RotateAngleAxis(RotationDifference.Yaw, FVector(0.f, 0.f, -1.f));
+	LocalRotation -= RotationDifference;
+}
+
+void UBattleSkyAnimInstance::SetPelvisIKOffset(const FVector FootOffset_L_Target, const FVector FootOffset_R_Target)
+{
+	PelvisAlpha = (GetCurveValue(NAME_Enable_FootIK_L) + GetCurveValue(NAME_Enable_FootIK_R)) / 2;
+	if (PelvisAlpha > 0.f)
+	{
+		const FVector PelvisTarget = FootOffset_L_Target.Z < FootOffset_R_Target.Z ? FootOffset_L_Target : FootOffset_R_Target;
+		
+		const float PelvisOffsetInterpSpeed = PelvisTarget.Z > PelvisOffset.Z ? 10.f : 15.f;
+		PelvisOffset = FMath::VInterpTo(PelvisOffset, PelvisTarget, Delta, PelvisOffsetInterpSpeed);
+	}
+	else
+	{
+		PelvisOffset = FVector::ZeroVector;
+	}
+}
+
+void UBattleSkyAnimInstance::ResetIKOffsets()
+{
+	FootOffset_L_Location = FMath::VInterpTo(FootOffset_L_Location, FVector::ZeroVector, Delta, 15.f);
+	FootOffset_R_Location = FMath::VInterpTo(FootOffset_R_Location, FVector::ZeroVector, Delta, 15.f);
+	FootOffset_L_Rotation = FMath::RInterpTo(FootOffset_L_Rotation, FRotator::ZeroRotator, Delta, 15.f);
+	FootOffset_R_Rotation = FMath::RInterpTo(FootOffset_R_Rotation, FRotator::ZeroRotator, Delta, 15.f);
 }
 
 bool UBattleSkyAnimInstance::ShouldMoveCheck() const
@@ -211,8 +358,6 @@ void UBattleSkyAnimInstance::UpdateMovementValues()
 {
 	// Interp and set the Velocity Blend
 	VelocityBlend = VelocityBlend.Interp(CalculateVelocityBlend(), VelocityBlendInterpSpeed, Delta);
-
-	// UE_LOG(LogTemp, Warning, TEXT("Velocity Blend - F : %f / B : %f / L : %f / R : %f"), VelocityBlend.F, VelocityBlend.B, VelocityBlend.L, VelocityBlend.R);
 
 	// Set the Diagnal Scale Amount
 	DiagonalScaleAmount = DiagonalScaleAmountCurve->GetFloatValue(FMath::Abs(VelocityBlend.F + VelocityBlend.B));
@@ -245,7 +390,6 @@ FVelocityBlend UBattleSkyAnimInstance::CalculateVelocityBlend()
 {
 	const FVector LocalRelativeVelocityDirection = OwningCharacter->GetActorRotation().UnrotateVector(Velocity.GetSafeNormal(.1f));
 
-	UE_LOG(LogTemp, Warning, TEXT("LocalRelativeVelocityDirection : %s"), *LocalRelativeVelocityDirection.ToString());
 	const float Sum = FMath::Abs(LocalRelativeVelocityDirection.X) + FMath::Abs(LocalRelativeVelocityDirection.Y) + FMath::Abs(LocalRelativeVelocityDirection.Z);
 	const FVector RelativeDirection = LocalRelativeVelocityDirection / Sum;
 
@@ -284,7 +428,8 @@ float UBattleSkyAnimInstance::CalculateCrouchingPlayRate()
 void UBattleSkyAnimInstance::UpdateRotationValues()
 {
 	MovementDirection = CalculateMovementDirection();
-	const float ControlRotationDeltaYaw = (FRotationMatrix::MakeFromX(Velocity).Rotator() - OwningCharacter->GetControlRotation()).Yaw;
+
+	const float ControlRotationDeltaYaw = FMath::FindDeltaAngleDegrees(OwningCharacter->GetControlRotation().Yaw, Velocity.Rotation().Yaw);
 
 	const FVector FBYawVector = YawOffset_FB->GetVectorValue(ControlRotationDeltaYaw);
 	const FVector LRYawVector = YawOffset_LR->GetVectorValue(ControlRotationDeltaYaw);
@@ -303,7 +448,7 @@ EMovementDirection UBattleSkyAnimInstance::CalculateMovementDirection() const
 	}
 	else
 	{
-		const FRotator RotationDelta = FRotationMatrix::MakeFromX(Velocity).Rotator() - AimingRotation;
+		const float RotationDelta = FMath::FindDeltaAngleDegrees(AimingRotation.Yaw, Velocity.Rotation().Yaw);
 		Result = CalculateQuadrant(
 			MovementDirection,
 			// 아래 네 값은 애니메이션 전환 간 임계값으로 변수로 설정하여 조정할 수 있다
@@ -312,7 +457,7 @@ EMovementDirection UBattleSkyAnimInstance::CalculateMovementDirection() const
 			110.f,
 			-110.f,
 			5.f,
-			RotationDelta.Yaw
+			RotationDelta
 		);
 	}
 	return Result;
@@ -361,7 +506,7 @@ bool UBattleSkyAnimInstance::AngleInRange(const float Angle, const float MinAngl
 
 bool UBattleSkyAnimInstance::CanTurnInPlace() const
 {
-	return ViewMode == EViewMode::FirstPerson && GetCurveValue(NAME_Enable_Transition) > 0.99f;
+	return ViewMode == EViewMode::ThirdPerson && RotationMode == ERotationMode::LookingDirection && GetCurveValue(NAME_Enable_Transition) > 0.99f;
 }
 
 bool UBattleSkyAnimInstance::CanDynamicTransition() const
@@ -389,7 +534,7 @@ void UBattleSkyAnimInstance::TurnInPlaceCheck()
 		const float RequiredTurnDelay = FMath::GetMappedRangeValueClamped(FVector2D(TurnCheckMinAngle, 180.f), FVector2D(MinAngleDelay, MaxAngleDelay), AimingDiffAmount);
 		if(ElapsedDelayTime > RequiredTurnDelay)
 		{
-			TurnInPlace(AimingRotation, 1.f, 0.f, false);
+			TurnInPlace(FRotator(0.f, AimingRotation.Yaw, 0.f), 1.f, 0.f, false);
 		}
 	}
 	else
@@ -401,7 +546,7 @@ void UBattleSkyAnimInstance::TurnInPlaceCheck()
 
 void UBattleSkyAnimInstance::TurnInPlace(const FRotator TargetRotation, const float PlayRateScale, const float StartTime, const bool OverrideCurrent)
 {
-	const float TurnAngle = (TargetRotation - OwningCharacter->GetActorRotation()).Yaw;
+	const float TurnAngle = FMath::FindDeltaAngleDegrees(OwningCharacter->GetActorRotation().Yaw, TargetRotation.Yaw);
 	FTurnInPlace* TargetTurnInPlacePtr = nullptr;
 	if (FMath::Abs(TurnAngle) < Turn180Threshold)
 	{
@@ -463,14 +608,16 @@ void UBattleSkyAnimInstance::DynamicTransitionCheck()
 		const FVector VB_L_FootLocation = Mesh->GetBoneTransform(NAME_VB_Foot_Target_L, ERelativeTransformSpace::RTS_Component).GetLocation();
 		if (FVector::Distance(IK_L_FootLocation, VB_L_FootLocation) > 8.f)
 		{
-			PlayDynamicTransition(0.1f, DynamicTransition_L);
+			UE_LOG(LogTemp, Warning, TEXT("Dynamic Transition R"));
+			PlayDynamicTransition(0.1f, DynamicTransition_R);
 		}
 
 		const FVector IK_R_FootLocation = Mesh->GetBoneTransform(NAME_IK_Foot_R, ERelativeTransformSpace::RTS_Component).GetLocation();
 		const FVector VB_R_FootLocation = Mesh->GetBoneTransform(NAME_VB_Foot_Target_R, ERelativeTransformSpace::RTS_Component).GetLocation();
 		if (FVector::Distance(IK_R_FootLocation, VB_R_FootLocation) > 8.f)
 		{
-			PlayDynamicTransition(0.1f, DynamicTransition_R);
+			UE_LOG(LogTemp, Warning, TEXT("Dynamic Transition L"));
+			PlayDynamicTransition(0.1f, DynamicTransition_L);
 		}
 	}
 }

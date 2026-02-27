@@ -86,12 +86,16 @@ USTRUCT(BlueprintType)
 struct FMovementSettings
 {
     GENERATED_BODY()
+    FMovementSettings(float WalkSpeed = 0.f, float RunSpeed = 0.f, float SprintSpeed = 0.f, UCurveVector* MovementCurve = nullptr, UCurveFloat* RotationRateCurve = nullptr)
+        : WalkSpeed(WalkSpeed), RunSpeed(RunSpeed), SprintSpeed(SprintSpeed), MovementCurve(MovementCurve), RotationRateCurve(RotationRateCurve)
+    {
+	}
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
-    float WalkSpeed;
+    float WalkSpeed = 0.f;
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
-    float RunSpeed;
+    float RunSpeed = 0.f;
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
-    float SprintSpeed;
+	float SprintSpeed = 0.f;
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
     UCurveVector* MovementCurve = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -106,6 +110,8 @@ struct FMovementSettingsStance
     FMovementSettings Standing;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
     FMovementSettings Crouhcing;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FMovementSettings Prone;
 };
 
 USTRUCT(BlueprintType)
