@@ -6,6 +6,8 @@
 #include "BattleSkyCameraAnimInstance.h"
 #include "CameraInterface.h"
 
+#include "BattleSkyCharacter.h"
+
 #include "DrawDebugHelpers.h"
 
 static const FName NAME_RotationLagSpeed("RotationLagSpeed");

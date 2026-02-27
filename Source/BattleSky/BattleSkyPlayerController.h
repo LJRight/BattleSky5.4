@@ -47,6 +47,9 @@ public:
 	UInputAction* FreeLookAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* FireAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* ViewModeAction;
+
 
 	// Input Action Handlers
 	void OnMove(const FInputActionValue& Value);
@@ -60,4 +63,5 @@ public:
 	void OnFreeLook(const FInputActionValue& Value);
 	void OnFire(const FInputActionValue& Value);
 	void OnStopFire(const FInputActionValue& Value);
+	void OnViewModeChanged(const FInputActionValue& Value);
 };

@@ -137,15 +137,15 @@ void UBattleSkyAnimInstance::UpdateCharacterInfo()
 	IsMoving = Speed > 1.0f;
 	MovementInputAmount = MovementInput.Size() / OwningCharacter->GetCharacterMovement()->GetMaxAcceleration();
 	HasMovementInput = MovementInputAmount > 0;
-	AimingRotation = OwningCharacter->GetControlRotation();
-	AimYawRate = FMath::Abs((AimingRotation.Yaw - PreviousAimYaw) / Delta);
-	
-	// 현재 프레임의 속도와 조준 회전값을 이전 프레임의 값으로 저장한다. 다음 프레임에서 이 값을 이용해 가속도와 조준 회전 속도를 계산할 것이다
-	PreviousVelocity = Velocity;
-	PreviousAimYaw = AimingRotation.Yaw;
 
+
+	// AimingRotation = OwningCharacter->GetControlRotation();
+	// AimYawRate = FMath::Abs((AimingRotation.Yaw - PreviousAimYaw) / Delta);
 	if(ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(OwningCharacter))
 	{
+		AimingRotation = BattleSkyCharacter->ReplicatedAimingRotation;
+		AimYawRate = FMath::Abs((AimingRotation.Yaw - PreviousAimYaw) / Delta);
+
 		MovementState = BattleSkyCharacter->MovementState;
 		PrevMovementState = BattleSkyCharacter->PrevMovementState;
 		MovementAction = BattleSkyCharacter->MovementAction;
@@ -154,6 +154,9 @@ void UBattleSkyAnimInstance::UpdateCharacterInfo()
 		Stance = BattleSkyCharacter->Stance;
 		OverlayState = BattleSkyCharacter->OverlayState;
 	}
+	// 현재 프레임의 속도와 조준 회전값을 이전 프레임의 값으로 저장한다. 다음 프레임에서 이 값을 이용해 가속도와 조준 회전 속도를 계산할 것이다
+	PreviousVelocity = Velocity;
+	PreviousAimYaw = AimingRotation.Yaw;
 }
 
 void UBattleSkyAnimInstance::UpdateAimingValues()

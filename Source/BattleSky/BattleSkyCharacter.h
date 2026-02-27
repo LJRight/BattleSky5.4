@@ -27,8 +27,12 @@ public:
 	
 
 public:
+
+	virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult) override;
+
 	void DoMove(const FInputActionValue& Value);
 	void DoWalk(const FInputActionValue& Value);
+	void ChangeViewMode(const FInputActionValue& Value);
 
 	void DoCrouch(const FInputActionValue& Value);
 	
@@ -54,7 +58,7 @@ public:
 	ERotationMode RotationMode;
 	UPROPERTY(ReplicatedUsing = OnRep_Gait, EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EGait Gait;
-	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
+	UPROPERTY(ReplicatedUsing = OnRep_Stance, EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EStance Stance;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EViewMode ViewMode;
@@ -71,13 +75,23 @@ public:
 	bool RightShoulder;
 
 
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	FRotator ReplicatedAimingRotation;
+
+
 private:
 
+	// Server RPC
 	UFUNCTION(Server, Reliable)
 	void Server_SetDesiredGait(EGait NewGait);
+	UFUNCTION(Server, Reliable)
+	void Server_SetDesiredStance(EStance NewStance);
 
 	UFUNCTION()
 	void OnRep_Gait();
+	UFUNCTION()
+	void OnRep_Stance();
 
 	void SetEssentialValues();
 
@@ -118,6 +132,10 @@ private:
 	FRotator LastVelocityRotation;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	float AimYawRate;
+
+	
+	UFUNCTION(Server, Reliable)
+	void Server_SetAimingRotation(const FRotator NewAimingRotation);
 
 	// Cached Values
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cached Values", meta = (AllowPrivateAccess = "true"))

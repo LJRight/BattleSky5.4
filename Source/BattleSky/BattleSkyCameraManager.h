@@ -31,4 +31,7 @@ protected:
 	FVector TargetCameraLocation;
 	UPROPERTY(VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
 	FRotator TargetCameraRotation;
+
+	float TargetPivotZ;
+	float CurrentPivotZ;
 };

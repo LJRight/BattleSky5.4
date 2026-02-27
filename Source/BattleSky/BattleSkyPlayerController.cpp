@@ -27,6 +27,8 @@ void ABattleSkyPlayerController::SetupInputComponent()
 		EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnCrouch);	
 		EIC->BindAction(ProneAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnProne);
 
+		EIC->BindAction(ViewModeAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnViewModeChanged);
+
 		// maintain
 		EIC->BindAction(WalkAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnWalk);
 		EIC->BindAction(WalkAction, ETriggerEvent::Completed, this, &ABattleSkyPlayerController::OnWalk);
@@ -108,7 +110,10 @@ void ABattleSkyPlayerController::OnJumpEnd(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnCrouch(const FInputActionValue& Value)
 {
-
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->DoCrouch(Value);
+	}
 }
 
 void ABattleSkyPlayerController::OnProne(const FInputActionValue& Value)
@@ -141,4 +146,13 @@ void ABattleSkyPlayerController::OnFire(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnStopFire(const FInputActionValue& Value)
 {
+}
+
+// 시점 변경 시
+void ABattleSkyPlayerController::OnViewModeChanged(const FInputActionValue& Value)
+{
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->ChangeViewMode(Value);
+	}
 }

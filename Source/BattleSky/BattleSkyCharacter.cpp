@@ -32,7 +32,7 @@ ABattleSkyCharacter::ABattleSkyCharacter()
 	bUseControllerRotationRoll = false;
 
 	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
+	//GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); // ...at this rotation rate
 
 	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
@@ -60,7 +60,7 @@ void ABattleSkyCharacter::BeginPlay()
 		MovementData = *P_MovementData;
 	}
 	CurrentMovementSettings = MovementData.LookingDriection.Standing;
-	//DesiredGait = EGait::Running;
+	UpdateDynamicMovementSettings(Gait);
 }
 
 void ABattleSkyCharacter::Tick(float DeltaTime)
@@ -69,12 +69,10 @@ void ABattleSkyCharacter::Tick(float DeltaTime)
 	SetEssentialValues();
 	if(MovementState == EMovementState::Grounded)
 	{
-		//UpdateCharacterMovement();
+		// UpdateCharacterMovement();
 		UpdateGroundedRotation();
 	}
 }
-
-
 
 void ABattleSkyCharacter::SetEssentialValues()
 {
@@ -91,6 +89,12 @@ void ABattleSkyCharacter::SetEssentialValues()
 	{
 		MovementInputAmount = CharMove->GetCurrentAcceleration().Length() / CharMove->GetMaxAcceleration();
 		HasMovementInput = MovementInputAmount > 0.f;
+	}
+
+	// 로컬일 때 컨트롤 회전 서버에 반영
+	if (IsLocallyControlled())
+	{
+		Server_SetAimingRotation(GetControlRotation());
 	}
 
 	AimYawRate = FMath::Abs((GetControlRotation().Yaw - PreviousAimYaw) / GetWorld()->GetDeltaSeconds());
@@ -110,7 +114,6 @@ void ABattleSkyCharacter::UpdateCharacterMovement()
 
 void ABattleSkyCharacter::UpdateGroundedRotation()
 {
-	UE_LOG(LogTemp,Warning, TEXT("In Update Grounded Rotation"))
 	if (CanUpdateMovingRotation())
 	{
 		if(RotationMode == ERotationMode::LookingDirection)
@@ -194,6 +197,11 @@ void ABattleSkyCharacter::LimitRotation(const float AimYawMin, const float AimYa
 			InterpSpeed
 		);
 	}
+}
+
+void ABattleSkyCharacter::Server_SetAimingRotation_Implementation(const FRotator NewAimingRotation)
+{
+	ReplicatedAimingRotation = NewAimingRotation;
 }
 
 EGait ABattleSkyCharacter::GetAllowedGait()
@@ -329,6 +337,12 @@ void ABattleSkyCharacter::OnGaitChanged(const EGait NewGait)
 	Gait = NewGait;
 }
 
+void ABattleSkyCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
+{
+	UE_LOG(LogTemp, Warning, TEXT("CalcCamera Called : %s"), bFindCameraComponentWhenViewTarget ? TEXT("True") : TEXT("False"));
+	Super::CalcCamera(DeltaTime, OutResult);
+}
+
 void ABattleSkyCharacter::DoMove(const FInputActionValue& Value)
 {
 	// input is a Vector2D
@@ -367,6 +381,8 @@ void ABattleSkyCharacter::DoWalk(const FInputActionValue& Value)
 	}
 }
 
+
+// 서버에서 호출됨
 void ABattleSkyCharacter::Server_SetDesiredGait_Implementation(EGait NewGait)
 {
 	DesiredGait = NewGait;
@@ -379,14 +395,40 @@ void ABattleSkyCharacter::Server_SetDesiredGait_Implementation(EGait NewGait)
 	UpdateDynamicMovementSettings(AllowedGait);
 }
 
+void ABattleSkyCharacter::Server_SetDesiredStance_Implementation(EStance NewStance)
+{
+	DesiredStance = NewStance;
+	// Stance 변경이 가능한지 서버에서 판단
+	if (DesiredStance == EStance::Crouching)
+	{
+		Crouch();
+	}
+	else
+	{
+		UnCrouch();
+	}
+	Stance = DesiredStance;
+	UpdateDynamicMovementSettings(Gait);
+}
+
+// 서버의 Gait 값이 바뀌었을 때 클라에서 호출됨
 void ABattleSkyCharacter::OnRep_Gait()
 {
 	UpdateDynamicMovementSettings(Gait);
-
 }
 
+// 서버에서 Stance 값이 바뀌었을 때 클라에서 호출됨
+void ABattleSkyCharacter::OnRep_Stance()
+{
+	UpdateDynamicMovementSettings(Gait);
+}
+
+
+// 일단 로컬 변화만 확인
 void ABattleSkyCharacter::DoCrouch(const FInputActionValue& Value)
 {
+	DesiredStance = bIsCrouched ? EStance::Standing : EStance::Crouching;
+	Server_SetDesiredStance(DesiredStance);
 }
 
 void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
@@ -402,6 +444,11 @@ void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
 		DesiredGait = EGait::Running;
 		Server_SetDesiredGait(DesiredGait);
 	}
+}
+
+void ABattleSkyCharacter::ChangeViewMode(const FInputActionValue& Value)
+{
+	ViewMode = ViewMode == EViewMode::FirstPerson ? EViewMode::ThirdPerson : EViewMode::FirstPerson;
 }
 
 FTransform ABattleSkyCharacter::Get3pPivotTarget() const
@@ -427,4 +474,5 @@ void ABattleSkyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ABattleSkyCharacter, Stance);
 	DOREPLIFETIME(ABattleSkyCharacter, Gait);
 	DOREPLIFETIME(ABattleSkyCharacter, MovementState);
+	DOREPLIFETIME(ABattleSkyCharacter, ReplicatedAimingRotation);
 }
