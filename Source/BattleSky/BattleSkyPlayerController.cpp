@@ -36,7 +36,7 @@ void ABattleSkyPlayerController::SetupInputComponent()
 		EIC->BindAction(SprintAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnSprint);
 		EIC->BindAction(SprintAction, ETriggerEvent::Completed, this, &ABattleSkyPlayerController::OnSprint);
 
-		EIC->BindAction(FreeLookAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnFreeLook);
+		EIC->BindAction(FreeLookAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnFreeLook);
 		EIC->BindAction(FreeLookAction, ETriggerEvent::Completed, this, &ABattleSkyPlayerController::OnFreeLook);
 
 		EIC->BindAction(FireAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnFire);
@@ -92,16 +92,17 @@ void ABattleSkyPlayerController::OnMove(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnMouseLook(const FInputActionValue& Value)
 {
-	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
-
-	// add yaw and pitch input to controller
 	AddYawInput(LookAxisVector.X);
 	AddPitchInput(LookAxisVector.Y);
 }
 
 void ABattleSkyPlayerController::OnJump(const FInputActionValue& Value)
 {
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->DoJump(Value);
+	}
 }
 
 void ABattleSkyPlayerController::OnJumpEnd(const FInputActionValue& Value)
@@ -138,6 +139,10 @@ void ABattleSkyPlayerController::OnSprint(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnFreeLook(const FInputActionValue& Value)
 {
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->DoFreeLook(Value);
+	}
 }
 
 void ABattleSkyPlayerController::OnFire(const FInputActionValue& Value)

@@ -97,15 +97,6 @@ struct FLeanAmount
 };
 
 UENUM(BlueprintType)
-enum class EMovementDirection : uint8
-{
-	Forward UMETA(DisplayName = "Forward"), 
-	Backward UMETA(DisplayName = "Backward"),
-	Left UMETA(DisplayName = "Left"),
-	Right UMETA(DisplayName = "Right")
-};
-
-UENUM(BlueprintType)
 enum class EHipsDirection : uint8
 {
 	F UMETA(DisplayName = "F"),
@@ -131,11 +122,18 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void PlayDynamicTransition(const float ReTriggerDelay, const FDynamicMontageParams Parameters);
 
+	void TurnInPlace(const FRotator TargetRotation, const float PlayRateScale, const float StartTime, const bool OverrideCurrent, bool bRotated90);
+
+	void OnJumped();
+private:
+	FTimerHandle JumpTimerHandle;
+	FORCEINLINE void ResetJumped() { Jumped = false; };
 protected:
 	float Delta;
 	ACharacter* OwningCharacter;
 
 private:
+	// Commone Update
 	void UpdateCharacterInfo();
 	void UpdateAimingValues();
 	void UpdateLayerValues();
@@ -147,10 +145,9 @@ private:
 	void ResetIKOffsets();
 
 
+	// Grounded
 	bool ShouldMoveCheck() const;
-
 	bool PrevShouldMove;
-
 	void UpdateMovementValues();
 	FVelocityBlend CalculateVelocityBlend();
 
@@ -168,12 +165,13 @@ private:
 
 	void RotateInPlaceCheck();
 	void TurnInPlaceCheck();
-	void TurnInPlace(const FRotator TargetRotation, const float PlayRateScale, const float StartTime, const bool OverrideCurrent);
-	void DynamicTransitionCheck();
-
 	
-	// FVector CalculateAcceleration(const FVector& CurrentVelocity, float DeltaSeconds) const;
-
+	void DynamicTransitionCheck();
+	
+	// In Air
+	void UpdateInAirValues();
+	float CalculateLandPrediction();
+	FLeanAmount CalculateInAirLeanAmount();
 	// Character Information
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character Information", meta = (AllowPrivateAccess="ture"))
 	FRotator AimingRotation;
@@ -240,6 +238,16 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim Graph (Grounded)", meta = (AllowPrivateAccess = "ture"))
 	float RYaw;
 
+
+	// Anim Graph - In Air
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim Graph (In Air)", meta = (AllowPrivateAccess = "ture"))
+	bool Jumped;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim Graph (In Air)", meta = (AllowPrivateAccess = "ture"))
+	float JumpPlayRate = 1.2f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim Graph (In Air)", meta = (AllowPrivateAccess = "ture"))
+	float FallSpeed;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim Graph (In Air)", meta = (AllowPrivateAccess = "ture"))
+	float LandPrediction;
 
 
 

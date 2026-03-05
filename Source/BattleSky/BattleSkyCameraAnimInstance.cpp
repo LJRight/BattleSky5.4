@@ -11,6 +11,10 @@ void UBattleSkyCameraAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	{
 		UpdateCharacterInfo();
 	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Camera Anim hasn't Pawn"));
+	}
 }
 
 void UBattleSkyCameraAnimInstance::UpdateCharacterInfo()

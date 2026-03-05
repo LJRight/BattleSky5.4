@@ -33,6 +33,15 @@ public:
 	TSubclassOf<UUserWidget> SessionListWidgetClass;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TSubclassOf<UUserWidget> SessionLobbyWidgetClass;
+	
+	
+	// In Game UI (HUD)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	TSubclassOf<UUserWidget> CompassWidgetClass;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	TSubclassOf<UUserWidget> CrossHairWidgetClass;
+
+	void ShowInGameUI(APlayerController* Owner);
 
 	void ShowMainMenu(APlayerController* Owner);
 	void ShowSessionLobby(APlayerController* Owner, bool bIsHost);

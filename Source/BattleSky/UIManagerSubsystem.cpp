@@ -4,9 +4,13 @@
 #include "Blueprint/UserWidget.h"
 #include "BattleSkyGameInstance.h"
 #include "SessionLobbyWidget.h"
+
 #include "LobbyPlayerState.h"
 #include "LobbyGameState.h"
 #include "LobbyPlayerController.h"
+
+#include "CompassWidget.h"
+#include "CrossHairWidget.h"
 
 void UUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -34,6 +38,18 @@ void UUIManagerSubsystem::OnConfirmButtonClicked(const FString& PlayerName)
         GI->PlayerName = PlayerName;
 	}
 	OnSessionLogicRequested.Broadcast(CurrentSessionRequest);
+}
+
+void UUIManagerSubsystem::ShowInGameUI(APlayerController* Owner)
+{
+    UCompassWidget* CompassWidget =
+        CreateWidget<UCompassWidget>(GetWorld(), CompassWidgetClass);
+	CompassWidget->AddToViewport();
+	
+	UCrossHairWidget* CrossHairWidget =
+		CreateWidget<UCrossHairWidget>(GetWorld(), CrossHairWidgetClass);
+    CrossHairWidget->AddToViewport();
+
 }
 
 void UUIManagerSubsystem::ShowMainMenu(APlayerController* Owner)

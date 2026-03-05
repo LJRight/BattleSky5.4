@@ -15,7 +15,23 @@ class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 
+USTRUCT(BlueprintType)
+struct FTurnInPlaceData
+{
+	GENERATED_BODY()
+	FTurnInPlaceData(const float StartYaw = 0.f, const float TargetYaw = 0.f, const float Duration = 0.f)
+		: StartYaw(StartYaw), TargetYaw(TargetYaw), Duration(Duration), Elapsed(0.f) 
+	{
+	};
+	float StartYaw;
+	float TargetYaw;
+	float Duration;
+	float Elapsed;
+};
+
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
+
+DECLARE_DELEGATE_TwoParams(FOnFreeLookChanged, bool, FRotator);
 
 UCLASS(config=Game)
 class ABattleSkyCharacter : public ACharacter, public ICameraInterface
@@ -24,28 +40,42 @@ class ABattleSkyCharacter : public ACharacter, public ICameraInterface
 
 public:
 	ABattleSkyCharacter();
-	
 
-public:
+	// 리플리케이트 변수 설정 함수
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult) override;
-
+	// 유저 입력에 따라 실행되는 함수
 	void DoMove(const FInputActionValue& Value);
 	void DoWalk(const FInputActionValue& Value);
-	void ChangeViewMode(const FInputActionValue& Value);
-
-	void DoCrouch(const FInputActionValue& Value);
-	
-	// virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
-	void DoSprint(const FInputActionValue& Value);
+	void DoJump(const FInputActionValue& Value);
 	void DoFreeLook(const FInputActionValue& Value);
+	void ChangeViewMode(const FInputActionValue& Value);
+	void DoCrouch(const FInputActionValue& Value);
+	void DoSprint(const FInputActionValue& Value);
+
 	void DoProne(const FInputActionValue& Value);
 	void DoFire(const FInputActionValue& Value);
 
+	// 카메라 매니저(로컬)에서 필요한 변수를 위해 호출하는 함수
 	virtual FTransform Get3pPivotTarget() const override;
 	virtual FVector GetFPCameraTarget() const override;
 	virtual void GetCameraParameters(float& OutTP_FOV, float& OutFP_FOV, bool& OutRightShoulder) const override;
+
+	// 카메라 매니저에게 반환하는 값들
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
+	float ThirdPersonFOV;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
+	float FirstPersonFOV;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
+	bool RightShoulder;
+
+
+	// Event Override
+	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
+	virtual void OnJumped_Implementation() override;
+
+	EMovementState ConvertMovementModeToState() const;
 
 	// State Values
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
@@ -64,21 +94,53 @@ public:
 	EViewMode ViewMode;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EOverlayState OverlayState;
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
+	EMovementDirection Replicated_MovementDirection;
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
+	FRotator Replicated_AimingRotation;
 
-	// Camera System
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
-	float ThirdPersonFOV;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
-	float FirstPersonFOV;
+
+	// FreeLook
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	bool IsFreeLooking;
+	UPROPERTY(VisibleAnywhere)
+	FRotator FreeLookStartRotation;
+	FOnFreeLookChanged OnFreeLookChanged;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
-	bool RightShoulder;
+	EMovementDirection CalculateMovementDirection() const;
+	EMovementDirection CalculateQuadrant(const EMovementDirection Current, const float FR_Threshold, const float FL_Threshold, const float BR_Threshold, const float BL_Threshold, const float Buffer, const float Angle) const;
+	bool AngleInRange(const float Angle, const float MinAngle, const float MaxAngle, const float Buffer, const bool IncreaseBuffer) const;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Actor Rotation Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveVector* YawOffset_FB;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Actor Rotation Curves", meta = (AllowPrivateAccess = "true"))
+	UCurveVector* YawOffset_LR;
 
+	
+	
+	// Turn In place
+	FORCEINLINE bool CanRotateInPlace() const { return RotationMode == ERotationMode::Aiming || ViewMode == EViewMode::FirstPerson; };
+	FORCEINLINE bool CanTurnInPlace() const { return ViewMode == EViewMode::ThirdPerson && RotationMode == ERotationMode::LookingDirection; };
+	void TurnInPlaceCheck(float DeltaTime);
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayTurnInPlace(const FRotator ActorTargetRotation, const bool bRotated90);
+	void SetActorRotatoinDuringTurnInPlace(float DeltaTime);
 
-
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
-	FRotator ReplicatedAimingRotation;
-
+	FTurnInPlaceData CurrentTurnInPlace;
+	FRotator ActorToAimingRotationDelta;
+	FRotator VelocityToAimingRotationDelta;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float TurnCheckMinAngle = 45.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float Turn180Threshold = 130.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float AimYawRateLimit = 50.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float ElapsedDelayTime;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float MinAngleDelay = 0.5f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Turn In Place", meta = (AllowPrivateAccess = "true"))
+	float MaxAngleDelay = 0.f;
+	bool bTurning;
 
 private:
 
@@ -87,19 +149,17 @@ private:
 	void Server_SetDesiredGait(EGait NewGait);
 	UFUNCTION(Server, Reliable)
 	void Server_SetDesiredStance(EStance NewStance);
-
 	UFUNCTION()
 	void OnRep_Gait();
 	UFUNCTION()
 	void OnRep_Stance();
 
-	void SetEssentialValues();
-
+	void SetEssentialValues(float DeltaTime);
 	void UpdateCharacterMovement();
 	
 	EGait GetAllowedGait();
 	bool CanSprint() const;
-	EGait GetActualGait(const EGait AllowedGait) const;
+	// EGait GetActualGait(const EGait AllowedGait) const;
 	void UpdateDynamicMovementSettings(const EGait AllowedGiat);
 	FMovementSettings GetTargetMovementSettings() const;
 	float GetMappedSpeed() const;
@@ -107,36 +167,41 @@ private:
 	void SetGait(const EGait NewGait);
 	void OnGaitChanged(const EGait NewGait);
 
-	void UpdateGroundedRotation();
+	void UpdateGroundedRotation(float DeltaTime);
 	bool CanUpdateMovingRotation();
-	void SmoothCharacterRotation(const FRotator Target, const float TargetInterpSpeed, const float ActorInterpSpeed);
+	void SmoothCharacterRotation(const FRotator Target, const float TargetInterpSpeed, const float ActorInterpSpeed, float DeltaTime);
 	float CalculateGroundedRotationRate() const;
-	float GetAnimCurveValue(const FName CurveName) const;
+	float CalculateYawOffset() const;
 
-	void LimitRotation(const float AimYawMin, const float AimYawMax, const float InterpSpeed);
-
-	// Referebces
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	// References
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "References", meta = (AllowPrivateAccess = "true"))
 	UAnimInstance* AnimInstance;
 
 	// Essential information
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Essential information", meta = (AllowPrivateAccess = "true"))
 	float Speed;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Essential information", meta = (AllowPrivateAccess = "true"))
 	float MovementInputAmount;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Essential information", meta = (AllowPrivateAccess = "true"))
 	bool HasMovementInput;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+
+public: 
+	FORCEINLINE bool Get_HasMovementInput() const { return HasMovementInput; };
+private:
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Essential information", meta = (AllowPrivateAccess = "true"))
 	bool IsMoving;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Essential information", meta = (AllowPrivateAccess = "true"))
 	FRotator LastVelocityRotation;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Essential information", meta = (AllowPrivateAccess = "true"))
 	float AimYawRate;
 
 	
+
+	
+	// Actor Rotation
 	UFUNCTION(Server, Reliable)
 	void Server_SetAimingRotation(const FRotator NewAimingRotation);
-
 	// Cached Values
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cached Values", meta = (AllowPrivateAccess = "true"))
 	float PreviousAimYaw;
@@ -150,8 +215,10 @@ private:
 	FMovementSettings CurrentMovementSettings;
 
 	// Rotation System
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement System", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Rotation System", meta = (AllowPrivateAccess = "true"))
 	FRotator TargetRotation;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Rotation System", meta = (AllowPrivateAccess = "true"))
+	FRotator InAirRotation;
 
 	// Input
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))

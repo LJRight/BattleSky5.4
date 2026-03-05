@@ -5,6 +5,7 @@
 #include "BattleSkyCharacter.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 
 const static FName NAME_Mask_AimOffset("Mask_AimOffset");
 const static FName NAME_BasePose_N("BasePose_N");
@@ -59,10 +60,12 @@ void UBattleSkyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	{
 		if (OwningCharacter)
 		{
+			// UE_LOG(LogTemp, Warning, TEXT("Rotation Curve Value : %f"), GetCurveValue(FName("RotationAmount")));
 			UpdateCharacterInfo();
 			UpdateAimingValues();
 			UpdateLayerValues();
 			UpdateFootIK();
+
 
 			if (MovementState == EMovementState::Grounded)
 			{
@@ -88,7 +91,8 @@ void UBattleSkyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 					UpdateRotationValues();
 				}
 
-				// 멈춰 있는 동안
+				// 멈춰 있는 동안 (여기에서 1인칭(RotateInPlace) / 3인칭(TurnInPlace) 여부를 체크하는 로직. 애니메이션 인스턴스에서 하는 게 맞는지? 
+				// 
 				else
 				{
 					if(CanRotateInPlace())
@@ -101,14 +105,14 @@ void UBattleSkyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 						Rotate_R = false;
 					}
 					
-					if(CanTurnInPlace())
+					/*if(CanTurnInPlace())
 					{
 						TurnInPlaceCheck();
 					}
 					else
 					{
 						ElapsedDelayTime = 0.f;
-					}
+					}*/
 
 					if(CanDynamicTransition())
 					{
@@ -143,7 +147,7 @@ void UBattleSkyAnimInstance::UpdateCharacterInfo()
 	// AimYawRate = FMath::Abs((AimingRotation.Yaw - PreviousAimYaw) / Delta);
 	if(ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(OwningCharacter))
 	{
-		AimingRotation = BattleSkyCharacter->ReplicatedAimingRotation;
+		AimingRotation = BattleSkyCharacter->IsFreeLooking ? BattleSkyCharacter->FreeLookStartRotation : BattleSkyCharacter->Replicated_AimingRotation;
 		AimYawRate = FMath::Abs((AimingRotation.Yaw - PreviousAimYaw) / Delta);
 
 		MovementState = BattleSkyCharacter->MovementState;
@@ -430,16 +434,10 @@ float UBattleSkyAnimInstance::CalculateCrouchingPlayRate()
 
 void UBattleSkyAnimInstance::UpdateRotationValues()
 {
-	MovementDirection = CalculateMovementDirection();
-
-	const float ControlRotationDeltaYaw = FMath::FindDeltaAngleDegrees(OwningCharacter->GetControlRotation().Yaw, Velocity.Rotation().Yaw);
-
-	const FVector FBYawVector = YawOffset_FB->GetVectorValue(ControlRotationDeltaYaw);
-	const FVector LRYawVector = YawOffset_LR->GetVectorValue(ControlRotationDeltaYaw);
-	FYaw = FBYawVector.X;
-	BYaw = FBYawVector.Y;
-	LYaw = LRYawVector.X;
-	RYaw = LRYawVector.Y;
+	if (ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(OwningCharacter))
+	{
+		MovementDirection = BattleSkyCharacter->Replicated_MovementDirection;
+	}
 }
 
 EMovementDirection UBattleSkyAnimInstance::CalculateMovementDirection() const
@@ -537,7 +535,7 @@ void UBattleSkyAnimInstance::TurnInPlaceCheck()
 		const float RequiredTurnDelay = FMath::GetMappedRangeValueClamped(FVector2D(TurnCheckMinAngle, 180.f), FVector2D(MinAngleDelay, MaxAngleDelay), AimingDiffAmount);
 		if(ElapsedDelayTime > RequiredTurnDelay)
 		{
-			TurnInPlace(FRotator(0.f, AimingRotation.Yaw, 0.f), 1.f, 0.f, false);
+			//TurnInPlace(FRotator(0.f, AimingRotation.Yaw, 0.f), 1.f, 0.f, false);
 		}
 	}
 	else
@@ -547,11 +545,11 @@ void UBattleSkyAnimInstance::TurnInPlaceCheck()
 	return;
 }
 
-void UBattleSkyAnimInstance::TurnInPlace(const FRotator TargetRotation, const float PlayRateScale, const float StartTime, const bool OverrideCurrent)
+void UBattleSkyAnimInstance::TurnInPlace(const FRotator TargetRotation, const float PlayRateScale, const float StartTime, const bool OverrideCurrent, bool bRotated90)
 {
 	const float TurnAngle = FMath::FindDeltaAngleDegrees(OwningCharacter->GetActorRotation().Yaw, TargetRotation.Yaw);
 	FTurnInPlace* TargetTurnInPlacePtr = nullptr;
-	if (FMath::Abs(TurnAngle) < Turn180Threshold)
+	if (bRotated90)
 	{
 		if(TurnAngle < 0.f)
 		{
@@ -602,6 +600,19 @@ void UBattleSkyAnimInstance::TurnInPlace(const FRotator TargetRotation, const fl
 	}
 }
 
+void UBattleSkyAnimInstance::OnJumped()
+{
+	Jumped = true;
+	JumpPlayRate = FMath::GetMappedRangeValueClamped(FVector2D(0.f, 600.f), FVector2D(1.2f, 1.5f), Speed);
+	GetWorld()->GetTimerManager().SetTimer(
+		JumpTimerHandle, 
+		this,
+		&UBattleSkyAnimInstance::ResetJumped,
+		0.1f,
+		false
+	);
+}
+
 void UBattleSkyAnimInstance::DynamicTransitionCheck()
 {
 	USkeletalMeshComponent* Mesh = GetOwningComponent();
@@ -625,8 +636,68 @@ void UBattleSkyAnimInstance::DynamicTransitionCheck()
 	}
 }
 
-//// 현재 프레임과 이전 프레임의 속도 차이를 이용해 가속도를 계산한다
-//FVector UBattleSkyAnimInstance::CalculateAcceleration(const FVector& CurrentVelocity, float DeltaTime) const
-//{
-//	return (CurrentVelocity - PreviousVelocity) / DeltaTime;
-//}
+void UBattleSkyAnimInstance::UpdateInAirValues()
+{
+	FallSpeed = Velocity.Z;
+	LandPrediction = CalculateLandPrediction();
+	LeanAmount = LeanAmount.Interp(CalculateInAirLeanAmount(), InAirLeanInterpSpeed, Delta);
+}
+
+float UBattleSkyAnimInstance::CalculateLandPrediction()
+{
+	if (FallSpeed >= -200.f)
+	{
+		return 0.f;
+	}
+	if (UCapsuleComponent* Capsule = OwningCharacter->GetCapsuleComponent())
+	{
+		const FVector CapsuleLocation = Capsule->GetComponentLocation();
+		const float CapsuleRadius = Capsule->GetScaledCapsuleRadius();
+		const float CapsuleHeight = Capsule->GetScaledCapsuleHalfHeight();
+
+		FVector UnSafeNoraml = FVector(Velocity.X, Velocity.Y, FMath::Clamp(Velocity.Z, -4000.f, -200.f)).GetUnsafeNormal();
+		UnSafeNoraml *= FMath::GetMappedRangeValueClamped(FVector2D(0.f, -4000.f), FVector2D(50.f, 2000.f), Velocity.Z);
+
+		const FVector TraceEndLocation = CapsuleLocation + UnSafeNoraml;
+
+		FHitResult HitResult;
+		FCollisionQueryParams QueryParams;
+		QueryParams.AddIgnoredActor(OwningCharacter);
+		
+		GetWorld()->SweepSingleByProfile(
+			HitResult,
+			CapsuleLocation,
+			TraceEndLocation,
+			FQuat::Identity,
+			TEXT("CharacterMesh"),
+			FCollisionShape::MakeCapsule(CapsuleRadius, CapsuleHeight),
+			QueryParams
+		);
+
+		if (UCharacterMovementComponent* Mov = OwningCharacter->GetCharacterMovement())
+		{
+			if (!(Mov->IsWalkable(HitResult) && HitResult.bBlockingHit))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("In Air Capsule Trace's HitResult is False OR cannot be Walkable"));
+				return 0.f;
+			}
+
+			UE_LOG(LogTemp, Warning, TEXT("Successfully Calculate LandPrediction Value"));
+			return FMath::Lerp(LandPredictionCurve->GetFloatValue(HitResult.Time), 0.f, GetCurveValue(FName("Mask_LandPrediction")));
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("Can't Find CharacterMovementComponent in AnimInstance's OwningCharacter"));
+		return 0.f;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Can't Find CapsuleComponent in AnimInstance's OwningCharacter"));
+	return 0.f;
+}
+
+FLeanAmount UBattleSkyAnimInstance::CalculateInAirLeanAmount()
+{
+	FVector Temp = OwningCharacter->GetActorRotation().UnrotateVector(Velocity) / 350.f;
+	Temp *= LeanInAirCurve ? LeanInAirCurve->GetFloatValue(FallSpeed) : 1.f;
+	
+	return FLeanAmount(Temp.X, Temp.Y);
+}
