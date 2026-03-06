@@ -34,8 +34,3 @@ void UCrossHairWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 		}
 	}
 }
-
-void UCrossHairWidget::OnSpreadChanged(const bool bSpreaded)
-{
-
-}

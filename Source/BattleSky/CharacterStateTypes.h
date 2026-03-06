@@ -61,7 +61,7 @@ enum class EMovementAction : uint8
 UENUM(BlueprintType)
 enum class EOverlayState : uint8
 {
-    Default UMETA(DisplayName = "None"),
+	Default UMETA(DisplayName = "Default"),
     Masculine UMETA(DisplayName = "LowMantle"),
     Feminine UMETA(DisplayName = "HighMantle"),
     Injured UMETA(DisplayName = "Rolling"),

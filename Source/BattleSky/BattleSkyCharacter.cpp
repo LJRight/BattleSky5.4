@@ -14,6 +14,7 @@
 #include "BattleSkyAnimInstance.h"
 
 #include "UIManagerSubsystem.h"
+#include "BattleSkyPlayerController.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -95,16 +96,22 @@ void ABattleSkyCharacter::SetEssentialValues(float DeltaTime)
 	// 로컬일 때 컨트롤 회전 서버에 반영
 	if (IsLocallyControlled())
 	{
-		Server_SetAimingRotation(GetControlRotation());
+		FRotator ControlRot; 
+		if (ABattleSkyPlayerController * BSCtr = Cast<ABattleSkyPlayerController>(GetController()))
+		{
+			ControlRot = BSCtr->IsFreeLooking || BSCtr->bReturningFromFreeLook ? BSCtr->FreeLookReturnTargetRotation : GetControlRotation();
+		}
 
-		ActorToAimingRotationDelta = GetControlRotation() - GetActorRotation();
+		Server_SetAimingRotation(ControlRot);
+
+		ActorToAimingRotationDelta = ControlRot - GetActorRotation();
 		ActorToAimingRotationDelta.Normalize();
 		
-		VelocityToAimingRotationDelta = GetVelocity().Rotation() - (IsFreeLooking ? FreeLookStartRotation : GetControlRotation());
+		VelocityToAimingRotationDelta = GetVelocity().Rotation() - ControlRot;
 		VelocityToAimingRotationDelta.Normalize();
 
-		AimYawRate = FMath::Abs((GetControlRotation().Yaw - PreviousAimYaw) / DeltaTime);
-		PreviousAimYaw = GetControlRotation().Yaw;
+		AimYawRate = FMath::Abs((ControlRot.Yaw - PreviousAimYaw) / DeltaTime);
+		PreviousAimYaw = ControlRot.Yaw;
 
 		Replicated_MovementDirection = CalculateMovementDirection();
 	}
@@ -127,8 +134,6 @@ void ABattleSkyCharacter::SetEssentialValues(float DeltaTime)
 void ABattleSkyCharacter::UpdateCharacterMovement()
 {
 	const EGait AllowedGait = GetAllowedGait();
-	// Actual Gait 을 구할 필요가 있는지? 배그에서
-	/*const EGait ActualGait = GetActualGait(AllowedGait);*/
 	if (AllowedGait != Gait)
 	{
 		SetGait(AllowedGait);
@@ -138,10 +143,6 @@ void ABattleSkyCharacter::UpdateCharacterMovement()
 
 void ABattleSkyCharacter::UpdateGroundedRotation(float DeltaTime)
 {
-	if (IsFreeLooking)
-	{
-		return;
-	}
 	if (CanUpdateMovingRotation())
 	{
 		bTurning = false;
@@ -414,19 +415,6 @@ bool ABattleSkyCharacter::CanSprint() const
 	return false;
 }
 
-//EGait ABattleSkyCharacter::GetActualGait(const EGait AllowedGait) const
-//{
-//	const float LocalWalkSpeed = CurrentMovementSettings.WalkSpeed;
-//	const float LocalRunSpeed = CurrentMovementSettings.RunSpeed;
-//	const float LocalSprintSpeed = CurrentMovementSettings.SprintSpeed;
-//
-//	if (Speed >= LocalRunSpeed + 10.f)
-//	{
-//		return AllowedGait == EGait::Sprinting ? EGait::Sprinting : EGait::Running;
-//	}
-//	return Speed >= LocalWalkSpeed + 10.f ? EGait::Running : EGait::Walking;
-//}
-
 void ABattleSkyCharacter::UpdateDynamicMovementSettings(const EGait AllowedGait)
 {
 	CurrentMovementSettings = GetTargetMovementSettings();
@@ -508,20 +496,14 @@ void ABattleSkyCharacter::OnGaitChanged(const EGait NewGait)
 	Gait = NewGait;
 }
 
-void ABattleSkyCharacter::DoMove(const FInputActionValue& Value)
+void ABattleSkyCharacter::DoMove(const FVector2D MovementVector, const FRotator BaseRotation)
 {
-	FVector2D MovementVector = Value.Get<FVector2D>();
+	const FVector ForwardDirection = FRotationMatrix(BaseRotation).GetUnitAxis(EAxis::X);
+	const FVector RightDirection = FRotationMatrix(BaseRotation).GetUnitAxis(EAxis::Y);
 
-	if (Controller != nullptr)
-	{
-		const FRotator YawRotation(0, IsFreeLooking ? FreeLookStartRotation.Yaw : Controller->GetControlRotation().Yaw, 0);
+	AddMovementInput(ForwardDirection, MovementVector.Y);
+	AddMovementInput(RightDirection, MovementVector.X);
 
-		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-
-		AddMovementInput(ForwardDirection, MovementVector.Y);
-		AddMovementInput(RightDirection, MovementVector.X);
-	}
 }
 
 void ABattleSkyCharacter::DoWalk(const FInputActionValue& Value)
@@ -596,32 +578,24 @@ void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
 	if (DesiredGait != NewGait)
 	{
 		DesiredGait = NewGait;
-		//UpdateDynamicMovementSettings(DesiredGait);
-		/*if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				2.f,
-				FColor::Green,
-				FString::Printf(TEXT("DoSprint is Called"))
-			);
-		}*/
 		Server_SetDesiredGait(DesiredGait);
 	}
 }
 
-void ABattleSkyCharacter::DoFreeLook(const FInputActionValue& Value)
-{
-	// UE_LOG(LogTemp, Warning, TEXT("Free Look Input Action Value : %s"), Value.Get<bool>() ? TEXT("True") : TEXT("False"));
-	const bool bFreeLook = Value.Get<bool>();
-	if (bFreeLook)
-	{
-		IsFreeLooking = bFreeLook;
-		FreeLookStartRotation = GetControlRotation();
-		OnFreeLookChanged.ExecuteIfBound(bFreeLook, FreeLookStartRotation);
-	}
-	
-}
+//void ABattleSkyCharacter::DoFreeLook(const bool bFreeLook)
+//{
+//	if (bFreeLook)
+//	{
+//		IsFreeLooking = bFreeLook;
+//		FreeLookStartRotation = GetControlRotation();
+//		OnFreeLookChanged.ExecuteIfBound(bFreeLook, FreeLookStartRotation);
+//	}
+//	else
+//	{
+//		OnFreeLookChanged.ExecuteIfBound(bFreeLook, FRotator::ZeroRotator);
+//	}
+//	
+//}
 
 void ABattleSkyCharacter::ChangeViewMode(const FInputActionValue& Value)
 {

@@ -11,7 +11,6 @@ class BATTLESKY_API ABattleSkyCameraManager : public APlayerCameraManager
 	
 public:
 	ABattleSkyCameraManager();
-	// void OnPossess(APawn* NewPawn);
 
 	UFUNCTION(BlueprintCallable)
 	void CustomCameraBehavior(FVector& OutLocation, FRotator& OutRotation, float& OutFOV);
@@ -33,14 +32,4 @@ protected:
 	FVector TargetCameraLocation;
 	UPROPERTY(VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
 	FRotator TargetCameraRotation;
-
-private:
-	// FreeLook Returning
-	float ReturnDuration = 2.f;
-	bool bDelegateBound = false;
-	bool bIsReturningFromFreeLook = false;
-	FRotator FreeLookStartControlRotation;
-	void OnFreeLookActionStart(bool IsFreeLooking, FRotator TargetRotation);
-	void OnFreeLookReturnFinished();
-	FTimerHandle FreeLookReturnTimerHandle;
 };

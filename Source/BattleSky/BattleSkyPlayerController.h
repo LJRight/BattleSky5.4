@@ -26,9 +26,34 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
+	void ReturnToFreeLookStartRotationBySpeed(float DeltaTime);
+	void ReturnToFreeLookStartRotationByTime(float DeltaTime);
 
 	// Input Action
 public:
+	
+	UPROPERTY(VisibleAnywhere, Category="Free Look")
+	bool IsFreeLooking;
+	UPROPERTY(VisibleAnywhere, Category = "Free Look")
+	bool bReturningFromFreeLook;
+	UPROPERTY(VisibleAnywhere, Category = "Free Look")
+	FRotator FreeLookReturnTargetRotation;
+	
+	// 속도 보간시 필요
+	FRotator FreeLookReturningCurrentRotation;
+	float FreeLookReturnInterpSpeed = 500.f;
+
+	// 시간 기반 보간시 필요
+	FRotator FreeLookReturnStartRotation;
+
+	float FreeLookReturnElapsed = 0.f;
+	UPROPERTY(VisibleAnywhere, Category = "Free Look")
+	float FreeLookReturnDuration = .01f;
+
+	
+
+
+
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* JumpAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
@@ -49,6 +74,8 @@ public:
 	UInputAction* FireAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* ViewModeAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* AimingAction;
 
 
 	// Input Action Handlers
@@ -64,4 +91,8 @@ public:
 	void OnFire(const FInputActionValue& Value);
 	void OnStopFire(const FInputActionValue& Value);
 	void OnViewModeChanged(const FInputActionValue& Value);
+	void OnAiming(const FInputActionValue& Value);
+
+private : 
+	bool IsAiming = false;
 };

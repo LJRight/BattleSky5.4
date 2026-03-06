@@ -35,6 +35,4 @@ private:
 	float CurrentSpread = 0.f;
 	float SpreadInterpSpeed = 10.f;
 
-	void OnSpreadChanged(bool bNewSpread);
-
 };

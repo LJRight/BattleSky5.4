@@ -41,6 +41,10 @@ void ABattleSkyPlayerController::SetupInputComponent()
 
 		EIC->BindAction(FireAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnFire);
 		EIC->BindAction(FireAction, ETriggerEvent::Completed, this, &ABattleSkyPlayerController::OnStopFire);
+
+		EIC->BindAction(AimingAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnAiming);
+		EIC->BindAction(AimingAction, ETriggerEvent::Completed, this, &ABattleSkyPlayerController::OnAiming);
+
 	}
 }
 
@@ -75,24 +79,72 @@ void ABattleSkyPlayerController::BeginPlay()
 void ABattleSkyPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (bReturningFromFreeLook)
+	{
+		ReturnToFreeLookStartRotationByTime(DeltaTime);
+	}
+}
+
+void ABattleSkyPlayerController::ReturnToFreeLookStartRotationBySpeed(float DeltaTime)
+{
+	FRotator Current = GetControlRotation();
+
+	float MaxStep = FreeLookReturnInterpSpeed * DeltaTime;
+
+	Current.Yaw = FMath::FixedTurn(
+		Current.Yaw,
+		FreeLookReturnTargetRotation.Yaw,
+		MaxStep
+	);
+
+	SetControlRotation(Current);
+	if (FMath::IsNearlyEqual(Current.Yaw, FreeLookReturnTargetRotation.Yaw, 0.1f))
+	{
+		bReturningFromFreeLook = false;
+	}
+}
+
+void ABattleSkyPlayerController::ReturnToFreeLookStartRotationByTime(float DeltaTime)
+{
+	FreeLookReturnElapsed += DeltaTime;
+
+	float Alpha = FMath::Clamp(
+		FreeLookReturnElapsed / FreeLookReturnDuration,
+		0.f,
+		1.f
+	);
+	Alpha = FMath::InterpEaseOut(0.f, 1.f, Alpha, 2.f);
+
+	FQuat Start = FreeLookReturnStartRotation.Quaternion();
+	FQuat Target = FreeLookReturnTargetRotation.Quaternion();
+
+	FQuat Result = FQuat::Slerp(Start, Target, Alpha);
+
+	SetControlRotation(Result.Rotator());
+
+	if (Alpha >= 1.f)
+	{
+		bReturningFromFreeLook = false;
+	}
 }
 
 void ABattleSkyPlayerController::OnMove(const FInputActionValue& Value)
 {
-	
 	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>()) 
 	{
-		BSCharacter->DoMove(Value);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Can't Find Character"));
+		BSCharacter->DoMove(Value.Get<FVector2D>(), FRotator(0.f, IsFreeLooking ? FreeLookReturnTargetRotation.Yaw : ControlRotation.Yaw, 0.f));
 	}
 }
 
 void ABattleSkyPlayerController::OnMouseLook(const FInputActionValue& Value)
 {
+	if (bReturningFromFreeLook)
+	{
+		return;
+	}
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
+
 	AddYawInput(LookAxisVector.X);
 	AddPitchInput(LookAxisVector.Y);
 }
@@ -139,9 +191,17 @@ void ABattleSkyPlayerController::OnSprint(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnFreeLook(const FInputActionValue& Value)
 {
-	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	IsFreeLooking = Value.Get<bool>();
+	if (IsFreeLooking)
 	{
-		BSCharacter->DoFreeLook(Value);
+		FreeLookReturnTargetRotation = ControlRotation;
+	}
+	else
+	{
+		bReturningFromFreeLook = true;
+		FreeLookReturnStartRotation = GetControlRotation();
+		FreeLookReturnElapsed = 0.f;
+
 	}
 }
 
@@ -159,5 +219,14 @@ void ABattleSkyPlayerController::OnViewModeChanged(const FInputActionValue& Valu
 	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
 	{
 		BSCharacter->ChangeViewMode(Value);
+	}
+}
+
+void ABattleSkyPlayerController::OnAiming(const FInputActionValue& Value)
+{
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->OverlayState = Value.Get<bool>() ? EOverlayState::Rifle : EOverlayState::Default;
+		BSCharacter->RotationMode = Value.Get<bool>() ? ERotationMode::Aiming : ERotationMode::LookingDirection;
 	}
 }

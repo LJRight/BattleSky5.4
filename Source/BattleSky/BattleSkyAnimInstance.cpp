@@ -147,7 +147,7 @@ void UBattleSkyAnimInstance::UpdateCharacterInfo()
 	// AimYawRate = FMath::Abs((AimingRotation.Yaw - PreviousAimYaw) / Delta);
 	if(ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(OwningCharacter))
 	{
-		AimingRotation = BattleSkyCharacter->IsFreeLooking ? BattleSkyCharacter->FreeLookStartRotation : BattleSkyCharacter->Replicated_AimingRotation;
+		AimingRotation = BattleSkyCharacter->Replicated_AimingRotation;
 		AimYawRate = FMath::Abs((AimingRotation.Yaw - PreviousAimYaw) / Delta);
 
 		MovementState = BattleSkyCharacter->MovementState;

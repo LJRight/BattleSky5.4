@@ -31,8 +31,6 @@ struct FTurnInPlaceData
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
-DECLARE_DELEGATE_TwoParams(FOnFreeLookChanged, bool, FRotator);
-
 UCLASS(config=Game)
 class ABattleSkyCharacter : public ACharacter, public ICameraInterface
 {
@@ -45,10 +43,10 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	// 유저 입력에 따라 실행되는 함수
-	void DoMove(const FInputActionValue& Value);
+	void DoMove(const FVector2D MovementVector, const FRotator BaseRotation);
 	void DoWalk(const FInputActionValue& Value);
 	void DoJump(const FInputActionValue& Value);
-	void DoFreeLook(const FInputActionValue& Value);
+	//void DoFreeLook(const bool bFreeLook); 
 	void ChangeViewMode(const FInputActionValue& Value);
 	void DoCrouch(const FInputActionValue& Value);
 	void DoSprint(const FInputActionValue& Value);
@@ -92,7 +90,7 @@ public:
 	EStance Stance;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EViewMode ViewMode;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EOverlayState OverlayState;
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
 	EMovementDirection Replicated_MovementDirection;
@@ -100,12 +98,6 @@ public:
 	FRotator Replicated_AimingRotation;
 
 
-	// FreeLook
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	bool IsFreeLooking;
-	UPROPERTY(VisibleAnywhere)
-	FRotator FreeLookStartRotation;
-	FOnFreeLookChanged OnFreeLookChanged;
 	
 	EMovementDirection CalculateMovementDirection() const;
 	EMovementDirection CalculateQuadrant(const EMovementDirection Current, const float FR_Threshold, const float FL_Threshold, const float BR_Threshold, const float BL_Threshold, const float Buffer, const float Angle) const;
@@ -115,7 +107,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Actor Rotation Curves", meta = (AllowPrivateAccess = "true"))
 	UCurveVector* YawOffset_LR;
 
-	
+
 	
 	// Turn In place
 	FORCEINLINE bool CanRotateInPlace() const { return RotationMode == ERotationMode::Aiming || ViewMode == EViewMode::FirstPerson; };

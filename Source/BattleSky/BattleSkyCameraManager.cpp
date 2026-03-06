@@ -71,16 +71,6 @@ void ABattleSkyCameraManager::CustomCameraBehavior(FVector& OutLocation, FRotato
 		BSCameraAnimInstance->SetOwningController(GetOwningPlayerController());
 		BSCameraAnimInstance->SetControlledPawn(ControlledPawn);
 	}
-
-	if (!bDelegateBound && ControlledPawn)
-	{
-		if (ABattleSkyCharacter* Character = Cast<ABattleSkyCharacter>(ControlledPawn))
-		{
-			Character->OnFreeLookChanged.BindUObject(this, &ABattleSkyCameraManager::OnFreeLookActionStart);
-			bDelegateBound = true;
-		}
-	}
-
 	// Step 1: Get Camera Parameters from CharacterBP via the Camera Interface
 	FTransform PivotTarget;
 	FVector FPTarget;
@@ -100,11 +90,11 @@ void ABattleSkyCameraManager::CustomCameraBehavior(FVector& OutLocation, FRotato
 	// Step 2: Calculate Target Camera Rotation. Use the Control Rotation and interpolate for smooth camera rotation
 	TargetCameraRotation = FMath::RInterpTo(
 		GetCameraRotation(),
-		bIsReturningFromFreeLook ? FreeLookStartControlRotation : GetOwningPlayerController()->GetControlRotation(),
+		GetOwningPlayerController()->GetControlRotation(),
 		GetWorld()->DeltaTimeSeconds,
-		bIsReturningFromFreeLook ? GetCameraBehaviorParam(NAME_FreeLookReturningSpeed) : GetCameraBehaviorParam(NAME_RotationLagSpeed)
+		GetCameraBehaviorParam(NAME_RotationLagSpeed)
 	);
-
+	
 	// Step 3: Calculate the Smoothed Pivot Target (Orange Sphere). Get the 3P Pivot Target (Green Sphere) 
 	// and interpolate using axis independent lag for maximum control
 	const FVector LagSpeed = FVector(
@@ -138,7 +128,6 @@ void ABattleSkyCameraManager::CustomCameraBehavior(FVector& OutLocation, FRotato
 	// Setp 5: 카메라 최종 위치를 계산한다. 회전 기준점 위치에, 카메라의 상대적 오프셋을 더한다.
 	PivotLocation = SmoothedPivotTarget.GetLocation() + SmoothedPivotTarget.GetRotation().Rotator().RotateVector(PivotLocationOffset);
 	TargetCameraLocation = PivotLocation + TargetCameraRotation.RotateVector(CameraOffset);
-
 
 
 	// Step 6: Trace for an object between the camera and character to apply a corrective offset. 
@@ -209,36 +198,4 @@ FVector ABattleSkyCameraManager::CalculateAxisIndependentLag(FVector CurrentLoca
 		FMath::FInterpTo(CurrentUnRotatedLocation.X, TargetUnRotatedLocation.X, DeltaSeconds, LagSpeed.X),
 		FMath::FInterpTo(CurrentUnRotatedLocation.Y, TargetUnRotatedLocation.Y, DeltaSeconds, LagSpeed.Y),
 		FMath::FInterpTo(CurrentUnRotatedLocation.Z, TargetUnRotatedLocation.Z, DeltaSeconds, LagSpeed.Z)));
-}
-
-void ABattleSkyCameraManager::OnFreeLookActionStart(bool IsFreeLooking, FRotator TargetRotation)
-{
-	if (IsFreeLooking)
-	{
-		FreeLookStartControlRotation = TargetRotation;
-	}
-	else
-	{
-		bIsReturningFromFreeLook = true;
-
-		GetWorld()->GetTimerManager().ClearTimer(FreeLookReturnTimerHandle);
-
-		GetWorld()->GetTimerManager().SetTimer(
-			FreeLookReturnTimerHandle,
-			this,
-			&ABattleSkyCameraManager::OnFreeLookReturnFinished,
-			ReturnDuration,
-			false
-		);
-	}
-}
-
-void ABattleSkyCameraManager::OnFreeLookReturnFinished()
-{
-	bIsReturningFromFreeLook = false;
-	GetOwningPlayerController()->SetControlRotation(FreeLookStartControlRotation);
-	if (ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(ControlledPawn))
-	{
-		BattleSkyCharacter->IsFreeLooking = false;
-	}
 }
