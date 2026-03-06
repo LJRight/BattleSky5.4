@@ -586,20 +586,19 @@ void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
 	}
 }
 
-//void ABattleSkyCharacter::DoFreeLook(const bool bFreeLook)
-//{
-//	if (bFreeLook)
-//	{
-//		IsFreeLooking = bFreeLook;
-//		FreeLookStartRotation = GetControlRotation();
-//		OnFreeLookChanged.ExecuteIfBound(bFreeLook, FreeLookStartRotation);
-//	}
-//	else
-//	{
-//		OnFreeLookChanged.ExecuteIfBound(bFreeLook, FRotator::ZeroRotator);
-//	}
-//	
-//}
+void ABattleSkyCharacter::DoPeeking(const float Value)
+{
+	PeekingValue = Value;
+	RightShoulder = Value >= 0.f;
+}
+
+void ABattleSkyCharacter::DoChangeWeapon(const int WeaponIndex)
+{
+	if (UBattleSkyAnimInstance* BSAnim = Cast<UBattleSkyAnimInstance>(AnimInstance))
+	{
+		BSAnim->OnWeaponChanged();
+	}
+}
 
 void ABattleSkyCharacter::ChangeViewMode(const FInputActionValue& Value)
 {
@@ -626,7 +625,6 @@ void ABattleSkyCharacter::GetCameraParameters(float& OutTP_FOV, float& OutFP_FOV
 void ABattleSkyCharacter::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode)
 {
 	Super::OnMovementModeChanged(PrevMovementMode, PreviousCustomMode);
-	UE_LOG(LogTemp, Warning, TEXT("OnMovementModeChanged Called"));
 	PrevMovementState = MovementState;
 	MovementState = ConvertMovementModeToState();
 }

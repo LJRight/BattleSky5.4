@@ -28,6 +28,7 @@ void ABattleSkyPlayerController::SetupInputComponent()
 		EIC->BindAction(ProneAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnProne);
 
 		EIC->BindAction(ViewModeAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnViewModeChanged);
+		EIC->BindAction(WeapongChangeAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnWeaponChange);
 
 		// maintain
 		EIC->BindAction(WalkAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnWalk);
@@ -45,6 +46,9 @@ void ABattleSkyPlayerController::SetupInputComponent()
 		EIC->BindAction(AimingAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnAiming);
 		EIC->BindAction(AimingAction, ETriggerEvent::Completed, this, &ABattleSkyPlayerController::OnAiming);
 
+		EIC->BindAction(PeekingAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnPeeking);
+		EIC->BindAction(PeekingAction, ETriggerEvent::Completed, this, &ABattleSkyPlayerController::OnPeeking);
+		
 	}
 }
 
@@ -207,10 +211,22 @@ void ABattleSkyPlayerController::OnFreeLook(const FInputActionValue& Value)
 
 void ABattleSkyPlayerController::OnFire(const FInputActionValue& Value)
 {
+	if (Value.Get<bool>())
+	{
+		const FVector2D ShootReaction = []()->FVector2D 
+			{
+				return FVector2D(
+					FMath::FRandRange(-.5f, -1.f),
+					(FMath::RandBool() ? 1.f : -1.f) * FMath::FRandRange(.5f, 1.f)
+				);
+			}();
+		AddPitchInput(ShootReaction.X);
+		AddYawInput(ShootReaction.Y);
+	}
 }
 
 void ABattleSkyPlayerController::OnStopFire(const FInputActionValue& Value)
-{
+{	
 }
 
 // 시점 변경 시
@@ -229,4 +245,21 @@ void ABattleSkyPlayerController::OnAiming(const FInputActionValue& Value)
 		BSCharacter->OverlayState = Value.Get<bool>() ? EOverlayState::Rifle : EOverlayState::Default;
 		BSCharacter->RotationMode = Value.Get<bool>() ? ERotationMode::Aiming : ERotationMode::LookingDirection;
 	}
+}
+
+void ABattleSkyPlayerController::OnPeeking(const FInputActionValue& Value)
+{
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->DoPeeking(Value.Get<float>());
+	}
+}
+
+void ABattleSkyPlayerController::OnWeaponChange(const FInputActionValue& Value)
+{
+	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	{
+		BSCharacter->DoChangeWeapon((int)Value.Get<float>());
+	}
+
 }

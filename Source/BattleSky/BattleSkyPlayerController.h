@@ -77,6 +77,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* AimingAction;
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* PeekingAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* WeapongChangeAction;
 
 	// Input Action Handlers
 	void OnMove(const FInputActionValue& Value);
@@ -92,6 +97,8 @@ public:
 	void OnStopFire(const FInputActionValue& Value);
 	void OnViewModeChanged(const FInputActionValue& Value);
 	void OnAiming(const FInputActionValue& Value);
+	void OnPeeking(const FInputActionValue& Value);
+	void OnWeaponChange(const FInputActionValue& Value);
 
 private : 
 	bool IsAiming = false;

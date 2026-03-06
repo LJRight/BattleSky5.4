@@ -157,6 +157,8 @@ void UBattleSkyAnimInstance::UpdateCharacterInfo()
 		Gait = BattleSkyCharacter->Gait;
 		Stance = BattleSkyCharacter->Stance;
 		OverlayState = BattleSkyCharacter->OverlayState;
+
+		PeekingValue = BattleSkyCharacter->PeekingValue;
 	}
 	// 현재 프레임의 속도와 조준 회전값을 이전 프레임의 값으로 저장한다. 다음 프레임에서 이 값을 이용해 가속도와 조준 회전 속도를 계산할 것이다
 	PreviousVelocity = Velocity;
@@ -523,7 +525,6 @@ void UBattleSkyAnimInstance::RotateInPlaceCheck()
 	if(Rotate_L || Rotate_R)
 	{
 		RotateRate = FMath::GetMappedRangeValueClamped(FVector2D(AimYawRateMinRange, AimYawRateMaxRange), FVector2D(MinPlayRate, MaxPlayRate), AimYawRate);
-		UE_LOG(LogTemp, Warning, TEXT("Rotate Rate : %f"), RotateRate);
 	}
 }
 

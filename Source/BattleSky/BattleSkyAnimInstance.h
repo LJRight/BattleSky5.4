@@ -125,9 +125,17 @@ public:
 	void TurnInPlace(const FRotator TargetRotation, const float PlayRateScale, const float StartTime, const bool OverrideCurrent, bool bRotated90);
 
 	void OnJumped();
+
+// 여기부터 대충 넣고 구현한 것. 정리해야함
+	UFUNCTION(BlueprintImplementableEvent)
+	FORCEINLINE void OnWeaponChanged();
 private:
 	FTimerHandle JumpTimerHandle;
 	FORCEINLINE void ResetJumped() { Jumped = false; };
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	float PeekingValue;
+// 
 protected:
 	float Delta;
 	ACharacter* OwningCharacter;

@@ -53,6 +53,11 @@ public:
 
 	void DoProne(const FInputActionValue& Value);
 	void DoFire(const FInputActionValue& Value);
+	void DoPeeking(const float Value);
+
+	void DoChangeWeapon(const int WeaponIndex);
+
+	float PeekingValue = 0.f;
 
 	// 카메라 매니저(로컬)에서 필요한 변수를 위해 호출하는 함수
 	virtual FTransform Get3pPivotTarget() const override;

@@ -18,6 +18,7 @@ public:
 	FORCEINLINE void SetControlledPawn(APawn* NewPawn) { ControlledPawn = NewPawn; }
 	FORCEINLINE void SetOwningController(APlayerController* NewController) { OwningController = NewController; }
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
+
 private:
 
 	void UpdateCharacterInfo();
