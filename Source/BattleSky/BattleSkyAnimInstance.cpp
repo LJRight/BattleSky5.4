@@ -523,6 +523,7 @@ void UBattleSkyAnimInstance::RotateInPlaceCheck()
 	if(Rotate_L || Rotate_R)
 	{
 		RotateRate = FMath::GetMappedRangeValueClamped(FVector2D(AimYawRateMinRange, AimYawRateMaxRange), FVector2D(MinPlayRate, MaxPlayRate), AimYawRate);
+		UE_LOG(LogTemp, Warning, TEXT("Rotate Rate : %f"), RotateRate);
 	}
 }
 

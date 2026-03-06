@@ -169,7 +169,11 @@ void ABattleSkyCharacter::UpdateGroundedRotation(float DeltaTime)
 		// 1인칭 혹은 조준 중일 때
 		if (CanRotateInPlace())
 		{
-			SmoothCharacterRotation(FRotator(0.f, Replicated_AimingRotation.Yaw, 0.f), 1000.f, 50.f, DeltaTime);
+			// 컨트롤 회전과 액터 회전 사이 각이 임계값 이상일 때, 액터 회전 따라가기(+ 애니메이션에서 Rotate In Place 실행)
+			if (FMath::Abs(FMath::FindDeltaAngleDegrees(GetActorRotation().Yaw, GetControlRotation().Yaw)) < 50.f)
+			{
+				SmoothCharacterRotation(FRotator(0.f, Replicated_AimingRotation.Yaw, 0.f), 300.f, 10.f, DeltaTime);
+			}
 		}
 		// 3인칭 상황에서,
 		if (CanTurnInPlace())
