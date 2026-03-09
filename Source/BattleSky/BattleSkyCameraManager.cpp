@@ -11,7 +11,6 @@
 #include "DrawDebugHelpers.h"
 
 static const FName NAME_RotationLagSpeed("RotationLagSpeed");
-static const FName NAME_FreeLookReturningSpeed("FreeLookReturningSpeed");
 
 static const FName NAME_PivotLagSpeed_X("PivotLagSpeed_X");
 static const FName NAME_PivotLagSpeed_Y("PivotLagSpeed_Y");
