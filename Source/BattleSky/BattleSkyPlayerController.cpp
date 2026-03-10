@@ -6,6 +6,7 @@
 #include "BattleSkyCharacter.h"
 #include "EnhancedInputComponent.h"
 #include "BattleSkyCameraManager.h"
+#include "UIManagerSubsystem.h"
 
 void ABattleSkyPlayerController::SetupInputComponent()
 {
@@ -29,6 +30,8 @@ void ABattleSkyPlayerController::SetupInputComponent()
 
 		EIC->BindAction(ViewModeAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnViewModeChanged);
 		EIC->BindAction(WeapongChangeAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnWeaponChange);
+
+		EIC->BindAction(InteractableAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnInteraction);
 
 		// maintain
 		EIC->BindAction(WalkAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnWalk);
@@ -78,6 +81,7 @@ void ABattleSkyPlayerController::BeginPlay()
 			}
 		}
 	}
+	UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>();
 }
 
 void ABattleSkyPlayerController::Tick(float DeltaTime)
@@ -87,6 +91,10 @@ void ABattleSkyPlayerController::Tick(float DeltaTime)
 	if (bReturningFromFreeLook)
 	{
 		ReturnToFreeLookStartRotationByTime(DeltaTime);
+	}
+	if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
+	{
+		SearchInteractableObjects();
 	}
 }
 
@@ -149,8 +157,8 @@ void ABattleSkyPlayerController::OnMouseLook(const FInputActionValue& Value)
 	}
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
 
-	AddYawInput(LookAxisVector.X);
-	AddPitchInput(LookAxisVector.Y);
+	AddYawInput(LookAxisVector.X * HorizontalLookRate);
+	AddPitchInput(LookAxisVector.Y * VerticalLookRate);
 }
 
 void ABattleSkyPlayerController::OnJump(const FInputActionValue& Value)
@@ -213,7 +221,7 @@ void ABattleSkyPlayerController::OnFire(const FInputActionValue& Value)
 {
 	if (Value.Get<bool>())
 	{
-		const FVector2D ShootReaction = []()->FVector2D 
+		/*const FVector2D ShootReaction = []()->FVector2D 
 			{
 				return FVector2D(
 					FMath::FRandRange(-.5f, -1.f),
@@ -221,7 +229,11 @@ void ABattleSkyPlayerController::OnFire(const FInputActionValue& Value)
 				);
 			}();
 		AddPitchInput(ShootReaction.X);
-		AddYawInput(ShootReaction.Y);
+		AddYawInput(ShootReaction.Y);*/
+		if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
+		{
+			BSCharacter->DoFire();
+		}
 	}
 }
 
@@ -262,4 +274,82 @@ void ABattleSkyPlayerController::OnWeaponChange(const FInputActionValue& Value)
 		BSCharacter->DoChangeWeapon((int)Value.Get<float>());
 	}
 
+}
+
+void ABattleSkyPlayerController::OnInteraction(const FInputActionValue& Value)
+{
+	if (IInteractable* It = Cast< IInteractable>(FocusedInteractableObject))
+	{
+		It->Interact(this);
+		if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
+		{
+			BSCharacter->DoInteraction(FocusedInteractableObject);
+		}
+	}
+}
+
+void ABattleSkyPlayerController::SearchInteractableObjects()
+{
+	FHitResult HitResult;
+	
+	FVector Start;
+	FRotator Rotation;
+
+	GetPlayerViewPoint(Start, Rotation);
+
+	FVector End = Start + Rotation.Vector() * 500.f; // 거리 변수 가능
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(GetPawn());
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(
+		HitResult,
+		Start,
+		End,
+		ECC_GameTraceChannel2,
+		Params
+	);
+
+	if (bHit)
+	{
+		AActor* NewActor = HitResult.GetActor();
+		if (NewActor != FocusedInteractableObject)
+		{
+			FocusedInteractableObject = NewActor;
+			if(UI)
+			{
+				UI->ShowInteractWidget(
+					true, 
+					FText::Format(FText::FromString("[{0}] {1}"), GetInteractKey().GetDisplayName(), Cast<IInteractable>(FocusedInteractableObject)->GetText()));
+			}
+		}
+	}
+	else
+	{
+		FocusedInteractableObject = nullptr;
+		if (UI && UI->CanHideInteractionWidget())
+		{
+			UI->ShowInteractWidget(false, FText::GetEmpty());
+		}
+	}
+}
+
+FKey ABattleSkyPlayerController::GetInteractKey() const
+{
+	if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+		{
+			TArray<FEnhancedActionKeyMapping> Mappings = Subsystem->GetAllPlayerMappableActionKeyMappings();
+
+			for (const auto& Mapping : Mappings)
+			{
+				if (Mapping.Action == InteractableAction)
+				{
+					return Mapping.Key;
+				}
+			}
+		}
+	}
+	return EKeys::Invalid;
 }

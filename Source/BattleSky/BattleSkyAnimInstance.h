@@ -129,6 +129,8 @@ public:
 // 여기부터 대충 넣고 구현한 것. 정리해야함
 	UFUNCTION(BlueprintImplementableEvent)
 	FORCEINLINE void OnWeaponChanged();
+	UFUNCTION(BlueprintImplementableEvent)
+	FORCEINLINE void OnInteraction();
 private:
 	FTimerHandle JumpTimerHandle;
 	FORCEINLINE void ResetJumped() { Jumped = false; };

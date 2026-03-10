@@ -13,6 +13,7 @@
 #include "Net/UnrealNetwork.h"
 #include "BattleSkyAnimInstance.h"
 
+#include "InventoryComponent.h"
 #include "UIManagerSubsystem.h"
 #include "BattleSkyPlayerController.h"
 
@@ -46,6 +47,8 @@ ABattleSkyCharacter::ABattleSkyCharacter()
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
+
+	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
 }
 
 void ABattleSkyCharacter::BeginPlay()
@@ -586,6 +589,16 @@ void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
 	}
 }
 
+void ABattleSkyCharacter::DoFire()
+{
+	if (CurrentEquipedWeapon)
+	{
+		const FVector2D Recoil = CurrentEquipedWeapon->OnFire();
+		AddControllerYawInput(Recoil.X);
+		AddControllerPitchInput(Recoil.Y);
+	}
+}
+
 void ABattleSkyCharacter::DoPeeking(const float Value)
 {
 	PeekingValue = Value;
@@ -594,9 +607,28 @@ void ABattleSkyCharacter::DoPeeking(const float Value)
 
 void ABattleSkyCharacter::DoChangeWeapon(const int WeaponIndex)
 {
+	AWeaponBase* SelectedWeapon = Inventory->GetWeapon(WeaponIndex);
+	// 선택된 슬롯에 무기가 있고, 현재 들고있는 무기에서 교체할 수 있다면
+	if (SelectedWeapon && CurrentEquipedWeapon != SelectedWeapon)
+	{
+		if (UBattleSkyAnimInstance* BSAnim = Cast<UBattleSkyAnimInstance>(AnimInstance))
+		{
+			BSAnim->OnWeaponChanged();
+		}
+		CurrentEquipedWeapon = SelectedWeapon;
+		CurrentEquipedWeapon->AttachToHand(GetMesh(), FName("weapon_r_socket"));
+	}
+}
+
+void ABattleSkyCharacter::DoInteraction(AActor* InteractableObject)
+{
 	if (UBattleSkyAnimInstance* BSAnim = Cast<UBattleSkyAnimInstance>(AnimInstance))
 	{
-		BSAnim->OnWeaponChanged();
+		BSAnim->OnInteraction();
+	}
+	if (AItemBase* Item = Cast<AItemBase>(InteractableObject))
+	{
+		Inventory->EquipItem(Item);
 	}
 }
 

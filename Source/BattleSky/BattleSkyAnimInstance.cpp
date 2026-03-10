@@ -206,8 +206,6 @@ void UBattleSkyAnimInstance::UpdateLayerValues()
 	GetCurveValue(NAME_Layering_Arm_L_Add, Arm_L_Add);
 	GetCurveValue(NAME_Layering_Arm_R_Add, Arm_R_Add);
 
-	UE_LOG(LogTemp, Warning, TEXT("%f"), Arm_R_Add);
-
 	// Set the Hand Override weights
 	GetCurveValue(NAME_Layering_Hand_R, Hand_R);
 	GetCurveValue(NAME_Layering_Hand_L, Hand_L);

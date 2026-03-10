@@ -13,7 +13,9 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
+class UInventoryComponent;
 struct FInputActionValue;
+class AWeaponBase;
 
 USTRUCT(BlueprintType)
 struct FTurnInPlaceData
@@ -52,10 +54,14 @@ public:
 	void DoSprint(const FInputActionValue& Value);
 
 	void DoProne(const FInputActionValue& Value);
-	void DoFire(const FInputActionValue& Value);
+	void DoFire();
 	void DoPeeking(const float Value);
 
 	void DoChangeWeapon(const int WeaponIndex);
+	void DoInteraction(AActor* InteractableObject);
+
+	UPROPERTY()
+	AWeaponBase* CurrentEquipedWeapon;
 
 	float PeekingValue = 0.f;
 
@@ -102,6 +108,9 @@ public:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
 	FRotator Replicated_AimingRotation;
 
+
+	// 인벤토리 
+	UInventoryComponent* Inventory;
 
 	
 	EMovementDirection CalculateMovementDirection() const;

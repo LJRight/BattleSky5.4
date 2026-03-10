@@ -5,6 +5,8 @@
 #include "OnlineSessionSettings.h"
 #include "SessionEntryWidget.generated.h"
 
+class UTextBlock;
+class UButton;
 
 UCLASS()
 class BATTLESKY_API USessionEntryWidget : public UUserWidget
@@ -15,14 +17,13 @@ public :
 	void Setup(const FOnlineSessionSearchResult& InSearchResult);
 
 	UPROPERTY(meta = (BindWidget))
-	class UTextBlock* PlayerNumber;
+	UTextBlock* PlayerNumber;
 
 	UPROPERTY(meta = (BindWidget))
-	class UTextBlock* SessionName;
+	UTextBlock* SessionName;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* Btn_Session;
-
+	UButton* Btn_Session;
 private:
 	UFUNCTION()
 	void OnSessionEntryButtonClicked();

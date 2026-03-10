@@ -9,8 +9,7 @@
 #include "LobbyGameState.h"
 #include "LobbyPlayerController.h"
 
-#include "CompassWidget.h"
-#include "CrossHairWidget.h"
+
 
 void UUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -42,7 +41,15 @@ void UUIManagerSubsystem::OnConfirmButtonClicked(const FString& PlayerName)
 
 void UUIManagerSubsystem::ShowInGameUI(APlayerController* Owner)
 {
-    UCompassWidget* CompassWidget =
+    InGameUISets = FInGameUISet(
+        CreateWidget<UCompassWidget>(GetWorld(), CompassWidgetClass),
+        CreateWidget<UCrossHairWidget>(GetWorld(), CrossHairWidgetClass),
+		CreateWidget<UInteractWidget>(GetWorld(), InteractWidgetClass)
+	);
+	InGameUISets.AddToViewPort();
+	InGameUISets.Interaction->SetVisibility(ESlateVisibility::Hidden);
+
+    /*UCompassWidget* CompassWidget =
         CreateWidget<UCompassWidget>(GetWorld(), CompassWidgetClass);
 	CompassWidget->AddToViewport();
 	
@@ -50,6 +57,27 @@ void UUIManagerSubsystem::ShowInGameUI(APlayerController* Owner)
 		CreateWidget<UCrossHairWidget>(GetWorld(), CrossHairWidgetClass);
     CrossHairWidget->AddToViewport();
 
+    UInteractWidget* InteractWidget = 
+        CreateWidget<UInteractWidget>(GetWorld(), InteractWidgetClass);
+    InteractWidget->AddToViewport();
+	InteractWidget->SetVisibility(ESlateVisibility::Hidden);*/
+}
+
+void UUIManagerSubsystem::ShowInteractWidget(const bool bShowing, const FText& Text)
+{
+    if (InGameUISets.Interaction)
+	{
+        if (bShowing)
+        {
+            InGameUISets.Interaction->SetText(Text);
+            InGameUISets.Interaction->SetVisibility(ESlateVisibility::Visible);
+        }
+		else
+        {
+			UE_LOG(LogTemp, Warning, TEXT("Hidden"));
+			InGameUISets.Interaction->SetVisibility(ESlateVisibility::Hidden);
+        }
+    }
 }
 
 void UUIManagerSubsystem::ShowMainMenu(APlayerController* Owner)

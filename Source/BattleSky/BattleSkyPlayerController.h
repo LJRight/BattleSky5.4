@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "InputMappingContext.h"
+#include "Interactable.h"
 #include "BattleSkyPlayerController.generated.h"
 
 /**
@@ -32,6 +33,11 @@ protected:
 	// Input Action
 public:
 	
+	UPROPERTY(EditDefaultsOnly, Category = "Input Settings")
+	float VerticalLookRate = 1.f;
+	UPROPERTY(EditDefaultsOnly, Category = "Input Settings")
+	float HorizontalLookRate = 1.f;
+
 	UPROPERTY(VisibleAnywhere, Category="Free Look")
 	bool IsFreeLooking;
 	UPROPERTY(VisibleAnywhere, Category = "Free Look")
@@ -82,6 +88,9 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* WeapongChangeAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* InteractableAction;
+
 
 	// Input Action Handlers
 	void OnMove(const FInputActionValue& Value);
@@ -99,7 +108,15 @@ public:
 	void OnAiming(const FInputActionValue& Value);
 	void OnPeeking(const FInputActionValue& Value);
 	void OnWeaponChange(const FInputActionValue& Value);
+	void OnInteraction(const FInputActionValue& Value);
+	
+	void SearchInteractableObjects();
+
+	FKey GetInteractKey() const;
 
 private : 
+	class UUIManagerSubsystem* UI;
+
 	bool IsAiming = false;
+	AActor* FocusedInteractableObject;
 };
