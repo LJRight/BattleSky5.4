@@ -10,6 +10,9 @@
 #include "InteractWidget.h"
 #include "InventoryWidget.h"
 
+// DragManager
+#include "DragManager.h"
+
 #include "UIManagerSubsystem.generated.h"
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSessionLogicRequested, const FSessionRequest&);
@@ -59,6 +62,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FORCEINLINE void OnRefreshButtonClicked() const { OnSessionLogicRequested.Broadcast(CurrentSessionRequest); }
 
+
+	// 로비
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TSubclassOf<UUserWidget> MainMenuWidgetClass;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
@@ -68,8 +73,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TSubclassOf<UUserWidget> SessionLobbyWidgetClass;
 	
-	
 
+	// Drag 관련
+
+	UPROPERTY()
+	UDragManager* DragManager = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	TSubclassOf<UDragIconWidget> DragIconWidgetClass;
 
 	// In Game UI (HUD)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)

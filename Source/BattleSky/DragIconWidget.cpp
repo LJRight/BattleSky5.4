@@ -2,13 +2,27 @@
 
 
 #include "DragIconWidget.h"
+#include "Components/Image.h"
+
+void UDragIconWidget::SetIcon(UImage* Icon)
+{
+    if (Icon)
+	{        
+        this->MyIcon = Icon;
+	}
+}
 
 void UDragIconWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
-	Super::NativeTick(MyGeometry, InDeltaTime);
+    Super::NativeTick(MyGeometry, InDeltaTime);
 
-	float X, Y;
-	GetOwningPlayer()->GetMousePosition(X, Y);
+    if (!GetOwningPlayer())
+        return;
 
-	SetPositionInViewport(FVector2D(X, Y));
+    float X, Y;
+
+    if (GetOwningPlayer()->GetMousePosition(X, Y))
+    {
+        SetPositionInViewport(FVector2D(X, Y));
+    }
 }
