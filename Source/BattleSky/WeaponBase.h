@@ -18,6 +18,17 @@ enum class EWeaponType : uint8
 	Melee UMETA(DisplayName = "Melee"),
 };
 
+USTRUCT(BlueprintType)
+struct FAttachOffset
+{
+	GENERATED_BODY()
+	FAttachOffset(FVector Loc = FVector::ZeroVector, FRotator Rot = FRotator::ZeroRotator) : LocationOffset(Loc), RotaionOffset(Rot) {};
+	UPROPERTY(EditAnywhere)
+	FVector LocationOffset;
+	UPROPERTY(EditAnywhere)
+	FRotator RotaionOffset;
+};
+
 class ABattleSkyCharacter;
 
 UCLASS()
@@ -26,12 +37,17 @@ class BATTLESKY_API AWeaponBase : public AItemBase
 	GENERATED_BODY()
 
 public:
+	AWeaponBase();
 	// virtual void Tick(float DeltaTime) override;
 	virtual void Interact(ABattleSkyPlayerController* Interactor) override;
 
-	void OnEquipped(ABattleSkyCharacter* Character);
+	void OnEquipped(ABattleSkyCharacter* Character, int SlotIndex);
 
-	FVector2D OnFire() const;
+	bool OnFire(FVector2D& OutRecoil, /*const FVector TargetLocation, */const FVector Start, const FRotator Rotation);
+	void Test();
+
+	UPROPERTY(EditDefaultsOnly)
+	USceneComponent* Muzzle;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Specification")
 	float Damage;
@@ -56,6 +72,17 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Type")
 	EWeaponType WeaponType;
+
+	UPROPERTY(EditDefaultsOnly)
+	USoundWave* GunSound;
+
+	bool CanFire = true;
+	FTimerHandle RefireTimerHandle;
+
+	UPROPERTY(EditAnywhere, Category = "Detail Settings")
+	FAttachOffset HandAttach;
+	UPROPERTY(EditAnywhere, Category = "Detail Settings")
+	FAttachOffset BackAttach;
 
 	void AttachToHand(USkeletalMeshComponent* TargetMesh, const FName TargetSocketName);
 };

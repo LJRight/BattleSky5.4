@@ -28,7 +28,7 @@ void UInventoryComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 
 }
 
-bool UInventoryComponent::EquipItem(AItemBase* Item)
+bool UInventoryComponent::EquipItem(AItemBase* Item, int& OutSlotIndex)
 {
 	if (!Item)
 	{
@@ -37,12 +37,12 @@ bool UInventoryComponent::EquipItem(AItemBase* Item)
 
 	if (AWeaponBase* Weapon = Cast<AWeaponBase>(Item))
 	{
-		return EquipWeapon(Weapon);
+		return EquipWeapon(Weapon, OutSlotIndex);
 	}
 	return false;
 }
 
-bool UInventoryComponent::EquipWeapon(AWeaponBase* Weapon)
+bool UInventoryComponent::EquipWeapon(AWeaponBase* Weapon, int& OutSlotIndex)
 {
 	if (!Weapon) return false;
 
@@ -52,6 +52,7 @@ bool UInventoryComponent::EquipWeapon(AWeaponBase* Weapon)
         if (!WeaponSlots[(int32)EWeaponSlot::Sidearm])
         {
             WeaponSlots[(int32)EWeaponSlot::Sidearm] = Weapon;
+            OutSlotIndex = (int32)EWeaponSlot::Sidearm;
             return true;
         }
         break;
@@ -60,6 +61,7 @@ bool UInventoryComponent::EquipWeapon(AWeaponBase* Weapon)
         if (!WeaponSlots[(int32)EWeaponSlot::Melee])
         {
             WeaponSlots[(int32)EWeaponSlot::Melee] = Weapon;
+            OutSlotIndex = (int32)EWeaponSlot::Melee;
             return true;
         }
         break;
@@ -69,11 +71,13 @@ bool UInventoryComponent::EquipWeapon(AWeaponBase* Weapon)
         if (!WeaponSlots[(int32)EWeaponSlot::Primary])
         {
             WeaponSlots[(int32)EWeaponSlot::Primary] = Weapon;
+            OutSlotIndex = (int32)EWeaponSlot::Primary;
             return true;
         }
         else if (!WeaponSlots[(int32)EWeaponSlot::Secondary])
         {
             WeaponSlots[(int32)EWeaponSlot::Secondary] = Weapon;
+			OutSlotIndex = (int32)EWeaponSlot::Secondary;
             return true;
         }
         break;

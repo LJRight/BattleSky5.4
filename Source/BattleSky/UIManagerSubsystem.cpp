@@ -5,6 +5,7 @@
 #include "BattleSkyGameInstance.h"
 #include "SessionLobbyWidget.h"
 
+#include "ItemBase.h"
 #include "LobbyPlayerState.h"
 #include "LobbyGameState.h"
 #include "LobbyPlayerController.h"
@@ -44,23 +45,13 @@ void UUIManagerSubsystem::ShowInGameUI(APlayerController* Owner)
     InGameUISets = FInGameUISet(
         CreateWidget<UCompassWidget>(GetWorld(), CompassWidgetClass),
         CreateWidget<UCrossHairWidget>(GetWorld(), CrossHairWidgetClass),
-		CreateWidget<UInteractWidget>(GetWorld(), InteractWidgetClass)
+		CreateWidget<UInteractWidget>(GetWorld(), InteractWidgetClass),
+		CreateWidget<UInventoryWidget>(GetWorld(), InventoryWidgetClass)
 	);
 	InGameUISets.AddToViewPort();
 	InGameUISets.Interaction->SetVisibility(ESlateVisibility::Hidden);
-
-    /*UCompassWidget* CompassWidget =
-        CreateWidget<UCompassWidget>(GetWorld(), CompassWidgetClass);
-	CompassWidget->AddToViewport();
-	
-	UCrossHairWidget* CrossHairWidget =
-		CreateWidget<UCrossHairWidget>(GetWorld(), CrossHairWidgetClass);
-    CrossHairWidget->AddToViewport();
-
-    UInteractWidget* InteractWidget = 
-        CreateWidget<UInteractWidget>(GetWorld(), InteractWidgetClass);
-    InteractWidget->AddToViewport();
-	InteractWidget->SetVisibility(ESlateVisibility::Hidden);*/
+	InGameUISets.Inventory->SetVisibility(ESlateVisibility::Hidden);
+    
 }
 
 void UUIManagerSubsystem::ShowInteractWidget(const bool bShowing, const FText& Text)
@@ -73,10 +64,29 @@ void UUIManagerSubsystem::ShowInteractWidget(const bool bShowing, const FText& T
             InGameUISets.Interaction->SetVisibility(ESlateVisibility::Visible);
         }
 		else
-        {
-			UE_LOG(LogTemp, Warning, TEXT("Hidden"));
+		{
 			InGameUISets.Interaction->SetVisibility(ESlateVisibility::Hidden);
         }
+    }
+}
+
+void UUIManagerSubsystem::ShowInventory(const bool bShowing) const
+{
+    if (InGameUISets.Inventory)
+    {
+		InGameUISets.Inventory->SetVisibility(bShowing ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
+    }
+    if (InGameUISets.Compass)
+    {
+		InGameUISets.Compass->SetVisibility(bShowing ? ESlateVisibility::Hidden : ESlateVisibility::Visible);
+    }
+}
+
+void UUIManagerSubsystem::UpdateInventoryNearbyItemsList(const TArray<AItemBase*> NearbyItems)
+{
+    if (InGameUISets.Inventory)
+    {
+		InGameUISets.Inventory->UpdateNearbyItemsList(NearbyItems);
     }
 }
 

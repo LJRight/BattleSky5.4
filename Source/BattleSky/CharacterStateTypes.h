@@ -6,6 +6,14 @@
 #include "CharacterStateTypes.generated.h"
 
 UENUM(BlueprintType)
+enum class EPeekingDirection : uint8
+{
+    Left UMETA(DisplayName = "Left"),
+    None UMETA(DisplayName = "None"),
+    Right UMETA(DisplayName = "Right")
+};
+
+UENUM(BlueprintType)
 enum class EMovementDirection : uint8
 {
     Forward UMETA(DisplayName = "Forward"),

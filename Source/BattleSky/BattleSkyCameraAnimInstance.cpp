@@ -15,7 +15,7 @@ void UBattleSkyCameraAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 
 void UBattleSkyCameraAnimInstance::UpdateCharacterInfo()
 {
-	if(ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(ControlledPawn))
+	if (ABattleSkyCharacter* BattleSkyCharacter = Cast<ABattleSkyCharacter>(ControlledPawn))
 	{
 		RightShoulder = BattleSkyCharacter->RightShoulder;
 		MovementState = BattleSkyCharacter->MovementState;
@@ -25,5 +25,6 @@ void UBattleSkyCameraAnimInstance::UpdateCharacterInfo()
 		Stance = BattleSkyCharacter->Stance;
 		ViewMode = BattleSkyCharacter->ViewMode;
 		RotationMode = BattleSkyCharacter->RotationMode;
+		PeekingDirection = BattleSkyCharacter->Replicated_PeekingDirection;
 	}
 }

@@ -2,16 +2,15 @@
 
 #include "BattleSkyCharacter.h"
 #include "Engine/LocalPlayer.h"
-#include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Controller.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Net/UnrealNetwork.h"
 #include "BattleSkyAnimInstance.h"
+
 
 #include "InventoryComponent.h"
 #include "UIManagerSubsystem.h"
@@ -30,6 +29,9 @@ void ABattleSkyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ABattleSkyCharacter, MovementState);
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_AimingRotation);
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_MovementDirection);
+	DOREPLIFETIME(ABattleSkyCharacter, Replicated_PeekingDirection);
+	DOREPLIFETIME(ABattleSkyCharacter, Replicated_CurrentEquipedWeapon);
+
 }
 
 ABattleSkyCharacter::ABattleSkyCharacter()
@@ -49,6 +51,18 @@ ABattleSkyCharacter::ABattleSkyCharacter()
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+
+	SearchSphere = CreateDefaultSubobject<USphereComponent>(TEXT("Search Sphere"));
+	SearchSphere->SetupAttachment(RootComponent);
+	SearchSphere->SetSphereRadius(300.f);
+
+	SearchSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	SearchSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+	SearchSphere->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Overlap);
+	
+	// 오버랩 이벤트 구독
+	SearchSphere->OnComponentBeginOverlap.AddDynamic(this,&ABattleSkyCharacter::OnItemEnter);
+	SearchSphere->OnComponentEndOverlap.AddDynamic(this, &ABattleSkyCharacter::OnItemLeave);
 }
 
 void ABattleSkyCharacter::BeginPlay()
@@ -73,7 +87,7 @@ void ABattleSkyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	SetEssentialValues(DeltaTime);
-	if(MovementState == EMovementState::Grounded)
+	if (MovementState == EMovementState::Grounded)
 	{
 		UpdateGroundedRotation(DeltaTime);
 	}
@@ -237,6 +251,58 @@ float ABattleSkyCharacter::CalculateYawOffset() const
 		return YawOffset_FB->GetVectorValue(RotationDeltaYaw).Y;
 	default:
 		return 0.f;
+	}
+}
+
+void ABattleSkyCharacter::SearchAround(const bool bSearch)
+{
+	if (!SearchSphere) return;
+
+	SearchSphere->SetGenerateOverlapEvents(bSearch);
+	
+	NearbyItems.Empty();
+
+	if (bSearch)
+	{
+		TArray<AActor*> Actors;
+		SearchSphere->GetOverlappingActors(Actors, AItemBase::StaticClass());
+
+		for (AActor* Actor : Actors)
+		{
+			if (AItemBase* Item = Cast<AItemBase>(Actor))
+			{
+				NearbyItems.AddUnique(Item);
+			}
+		}
+
+		if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
+		{
+			UI->UpdateInventoryNearbyItemsList(NearbyItems);
+		}
+	}
+}
+
+void ABattleSkyCharacter::OnItemEnter(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (AItemBase* Item = Cast<AItemBase>(OtherActor))
+	{
+		NearbyItems.AddUnique(Item);
+		if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
+		{
+			UI->UpdateInventoryNearbyItemsList(NearbyItems);
+		}
+	}
+}
+
+void ABattleSkyCharacter::OnItemLeave(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (AItemBase* Item = Cast<AItemBase>(OtherActor))
+	{
+		NearbyItems.Remove(Item);
+		if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
+		{
+			UI->UpdateInventoryNearbyItemsList(NearbyItems);
+		}
 	}
 }
 
@@ -589,46 +655,94 @@ void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
 	}
 }
 
-void ABattleSkyCharacter::DoFire()
+void ABattleSkyCharacter::DoFire(const FVector Start, const FRotator Rotation)
 {
-	if (CurrentEquipedWeapon)
+	if (Replicated_CurrentEquipedWeapon)
 	{
-		const FVector2D Recoil = CurrentEquipedWeapon->OnFire();
-		AddControllerYawInput(Recoil.X);
-		AddControllerPitchInput(Recoil.Y);
+		FVector2D OutRecoil;
+
+		if (Replicated_CurrentEquipedWeapon->OnFire(OutRecoil, Start, Rotation))
+		{
+			AddControllerYawInput(OutRecoil.X);
+			AddControllerPitchInput(OutRecoil.Y);
+		}
 	}
 }
 
-void ABattleSkyCharacter::DoPeeking(const float Value)
+void ABattleSkyCharacter::DoPeeking(const float PeekingDirection)
 {
-	PeekingValue = Value;
-	RightShoulder = Value >= 0.f;
+	// 피킹 값이 변했을 때만 서버 RPC
+	if (PeekingDirection != static_cast<int32>(Replicated_PeekingDirection) - 1)
+	{
+		Server_DoPeeking(PeekingDirection);
+		RightShoulder = PeekingDirection == -1 ? false : true;
+	}
 }
+
+void ABattleSkyCharacter::Server_DoPeeking_Implementation(const float PeekingDirection)
+{
+	if (Gait != EGait::Sprinting && MovementState != EMovementState::InAir)
+	{
+		Replicated_PeekingDirection = static_cast<EPeekingDirection>(PeekingDirection + 1);
+	}
+}
+
 
 void ABattleSkyCharacter::DoChangeWeapon(const int WeaponIndex)
 {
-	AWeaponBase* SelectedWeapon = Inventory->GetWeapon(WeaponIndex);
+	AWeaponBase* SelectedWeapon = Inventory->GetWeapon(WeaponIndex - 1);
 	// 선택된 슬롯에 무기가 있고, 현재 들고있는 무기에서 교체할 수 있다면
-	if (SelectedWeapon && CurrentEquipedWeapon != SelectedWeapon)
+	if (SelectedWeapon && Replicated_CurrentEquipedWeapon != SelectedWeapon)
 	{
+
 		if (UBattleSkyAnimInstance* BSAnim = Cast<UBattleSkyAnimInstance>(AnimInstance))
 		{
 			BSAnim->OnWeaponChanged();
 		}
-		CurrentEquipedWeapon = SelectedWeapon;
-		CurrentEquipedWeapon->AttachToHand(GetMesh(), FName("weapon_r_socket"));
+		Replicated_CurrentEquipedWeapon = SelectedWeapon;
+		OverlayState = EOverlayState::Rifle;
 	}
 }
 
-void ABattleSkyCharacter::DoInteraction(AActor* InteractableObject)
+void ABattleSkyCharacter::Server_DoInteraction_Implementation(AActor* TargetActor)
 {
+	if (!TargetActor)
+	{
+		return;
+	}
+	float Distance = FVector::Dist(TargetActor->GetActorLocation(), GetActorLocation());
+
+	if (Distance > 500.f)
+	{
+		return;
+	}
+	if (IInteractable* Interactable = Cast<IInteractable>(TargetActor))
+	{
+		Interactable->Interact(Cast<ABattleSkyPlayerController>(GetController()));
+		Multicast_OnPickupItem();
+		AttachWeapon();
+	}
+}
+
+void ABattleSkyCharacter::Multicast_OnPickupItem_Implementation()
+{
+	if (!AnimInstance)
+	{
+		return;
+	}
 	if (UBattleSkyAnimInstance* BSAnim = Cast<UBattleSkyAnimInstance>(AnimInstance))
 	{
 		BSAnim->OnInteraction();
 	}
-	if (AItemBase* Item = Cast<AItemBase>(InteractableObject))
+}
+
+// 무기 교체 애니메이션에서 적절한 프레임에서 노티파이로 호출함
+// 
+void ABattleSkyCharacter::AttachWeapon()
+{
+	if (Replicated_CurrentEquipedWeapon)
 	{
-		Inventory->EquipItem(Item);
+		Replicated_CurrentEquipedWeapon->AttachToHand(GetMesh(), FName("weapon_r_socket"));
 	}
 }
 

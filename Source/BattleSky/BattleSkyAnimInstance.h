@@ -136,10 +136,12 @@ private:
 	FORCEINLINE void ResetJumped() { Jumped = false; };
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	float PeekingValue;
+	EPeekingDirection PeekingValue;
 // 
 protected:
 	float Delta;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowprivateAccess = "true"))
 	ACharacter* OwningCharacter;
 
 private:

@@ -7,9 +7,8 @@
 #include "CharacterStateTypes.h"
 #include "BattleSkyCameraAnimInstance.generated.h"
 
-/**
- * 
- */
+
+
 UCLASS()
 class BATTLESKY_API UBattleSkyCameraAnimInstance : public UAnimInstance
 {
@@ -41,4 +40,6 @@ private:
 	EViewMode ViewMode;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character Information", meta = (AllowPrivateAccess = "true"))
 	ERotationMode RotationMode;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character Information", meta = (AllowPrivateAccess = "true"))
+	EPeekingDirection PeekingDirection;
 };

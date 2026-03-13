@@ -158,7 +158,7 @@ void UBattleSkyAnimInstance::UpdateCharacterInfo()
 		Stance = BattleSkyCharacter->Stance;
 		OverlayState = BattleSkyCharacter->OverlayState;
 
-		PeekingValue = BattleSkyCharacter->PeekingValue;
+		PeekingValue = BattleSkyCharacter->Replicated_PeekingDirection;
 	}
 	// 현재 프레임의 속도와 조준 회전값을 이전 프레임의 값으로 저장한다. 다음 프레임에서 이 값을 이용해 가속도와 조준 회전 속도를 계산할 것이다
 	PreviousVelocity = Velocity;

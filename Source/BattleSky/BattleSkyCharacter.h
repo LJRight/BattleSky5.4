@@ -7,6 +7,7 @@
 #include "Logging/LogMacros.h"
 #include "CharacterStateTypes.h"
 #include "CameraInterface.h"
+#include "Components/SphereComponent.h"
 #include "BattleSkyCharacter.generated.h"
 
 class USpringArmComponent;
@@ -15,6 +16,7 @@ class UInputMappingContext;
 class UInputAction;
 class UInventoryComponent;
 struct FInputActionValue;
+class AItemBase;
 class AWeaponBase;
 
 USTRUCT(BlueprintType)
@@ -48,22 +50,35 @@ public:
 	void DoMove(const FVector2D MovementVector, const FRotator BaseRotation);
 	void DoWalk(const FInputActionValue& Value);
 	void DoJump(const FInputActionValue& Value);
-	//void DoFreeLook(const bool bFreeLook); 
 	void ChangeViewMode(const FInputActionValue& Value);
 	void DoCrouch(const FInputActionValue& Value);
 	void DoSprint(const FInputActionValue& Value);
 
 	void DoProne(const FInputActionValue& Value);
-	void DoFire();
-	void DoPeeking(const float Value);
+	void DoFire(const FVector Start, const FRotator Rotation);
+
+	void DoPeeking(const float PeekingDirection);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_DoPeeking(const float Value);
+	UPROPERTY(Replicated)
+	EPeekingDirection Replicated_PeekingDirection = EPeekingDirection::None;
 
 	void DoChangeWeapon(const int WeaponIndex);
-	void DoInteraction(AActor* InteractableObject);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_DoInteraction(AActor* TargetActor);
 
-	UPROPERTY()
-	AWeaponBase* CurrentEquipedWeapon;
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnPickupItem();
 
-	float PeekingValue = 0.f;
+	UFUNCTION(BlueprintCallable)
+	void AttachWeapon();
+
+	UPROPERTY(Replicated)
+	AWeaponBase* Replicated_CurrentEquipedWeapon;
+
+	
 
 	// 카메라 매니저(로컬)에서 필요한 변수를 위해 호출하는 함수
 	virtual FTransform Get3pPivotTarget() const override;
@@ -101,13 +116,39 @@ public:
 	EStance Stance;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EViewMode ViewMode;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EOverlayState OverlayState;
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
 	EMovementDirection Replicated_MovementDirection;
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
 	FRotator Replicated_AimingRotation;
 
+
+	// 주변 물체 탐색 관련
+
+	void SearchAround(const bool bSearch);
+
+	UPROPERTY(VisibleAnywhere)
+	USphereComponent* SearchSphere;
+	UPROPERTY(VisibleAnywhere)
+	TArray<AItemBase*> NearbyItems;
+
+	UFUNCTION()
+	void OnItemEnter(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+	UFUNCTION()
+	void OnItemLeave(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex
+	);
 
 	// 인벤토리 
 	UInventoryComponent* Inventory;
@@ -165,7 +206,6 @@ private:
 	
 	EGait GetAllowedGait();
 	bool CanSprint() const;
-	// EGait GetActualGait(const EGait AllowedGait) const;
 	void UpdateDynamicMovementSettings(const EGait AllowedGiat);
 	FMovementSettings GetTargetMovementSettings() const;
 	float GetMappedSpeed() const;

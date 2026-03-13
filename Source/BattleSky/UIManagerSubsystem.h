@@ -8,18 +8,20 @@
 #include "CompassWidget.h"
 #include "CrossHairWidget.h"
 #include "InteractWidget.h"
+#include "InventoryWidget.h"
 
 #include "UIManagerSubsystem.generated.h"
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSessionLogicRequested, const FSessionRequest&);
 class UInteractWidget;
+class AItemBase;
 
 USTRUCT(BlueprintType)
 struct FInGameUISet 
 {
 	GENERATED_BODY()
-	FInGameUISet(UUserWidget* Compass = nullptr, UUserWidget* CrossHair = nullptr, UInteractWidget* Interaction = nullptr)
-		: Compass(Compass), CrossHair(CrossHair), Interaction(Interaction)
+	FInGameUISet(UUserWidget* Compass = nullptr, UUserWidget* CrossHair = nullptr, UInteractWidget* Interaction = nullptr, UInventoryWidget* Inventory = nullptr)
+		: Compass(Compass), CrossHair(CrossHair), Interaction(Interaction), Inventory(Inventory)
 	{
 	}
 	void AddToViewPort() 
@@ -27,6 +29,7 @@ struct FInGameUISet
 		Compass->AddToViewport();
 		CrossHair->AddToViewport();
 		Interaction->AddToViewport();
+		Inventory->AddToViewport();
 	}
 	UPROPERTY()
 	UUserWidget* Compass;
@@ -34,6 +37,8 @@ struct FInGameUISet
 	UUserWidget* CrossHair;
 	UPROPERTY()
 	UInteractWidget* Interaction;
+	UPROPERTY()
+	UInventoryWidget* Inventory;
 };
 
 UCLASS()
@@ -76,12 +81,14 @@ public:
 	TSubclassOf<UUserWidget> CrossHairWidgetClass;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TSubclassOf<UUserWidget> InteractWidgetClass;
-
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	TSubclassOf<UInventoryWidget> InventoryWidgetClass;
 
 
 
 	void ShowInGameUI(APlayerController* Owner);
 	void ShowInteractWidget(const bool bShowing, const FText& Text);
+	void ShowInventory(const bool bShowing) const;
 	FORCEINLINE bool CanHideInteractionWidget() const {
 		if (InGameUISets.Interaction)
 		{
@@ -89,6 +96,8 @@ public:
 		}
 		return false;
 	};
+
+	void UpdateInventoryNearbyItemsList(const TArray<AItemBase*> NearbyItems);
 
 
 	void ShowMainMenu(APlayerController* Owner);

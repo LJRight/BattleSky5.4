@@ -33,6 +33,8 @@ void ABattleSkyPlayerController::SetupInputComponent()
 
 		EIC->BindAction(InteractableAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnInteraction);
 
+		EIC->BindAction(InventoryAction, ETriggerEvent::Started, this, &ABattleSkyPlayerController::OnInventory);
+
 		// maintain
 		EIC->BindAction(WalkAction, ETriggerEvent::Triggered, this, &ABattleSkyPlayerController::OnWalk);
 		EIC->BindAction(WalkAction, ETriggerEvent::Completed, this, &ABattleSkyPlayerController::OnWalk);
@@ -72,7 +74,6 @@ void ABattleSkyPlayerController::BeginPlay()
 	Super::BeginPlay();
 	if (IsLocalPlayerController())
 	{
-		// Add Input Mapping Contexts
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 		{
 			for (UInputMappingContext* CurrentContext : DefaultMappingContexts)
@@ -94,7 +95,10 @@ void ABattleSkyPlayerController::Tick(float DeltaTime)
 	}
 	if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
 	{
-		SearchInteractableObjects();
+		if (IsLocalPlayerController())
+		{
+			SearchInteractableObjects();
+		}
 	}
 }
 
@@ -134,7 +138,6 @@ void ABattleSkyPlayerController::ReturnToFreeLookStartRotationByTime(float Delta
 	FQuat Result = FQuat::Slerp(Start, Target, Alpha);
 
 	SetControlRotation(Result.Rotator());
-
 	if (Alpha >= 1.f)
 	{
 		bReturningFromFreeLook = false;
@@ -221,18 +224,13 @@ void ABattleSkyPlayerController::OnFire(const FInputActionValue& Value)
 {
 	if (Value.Get<bool>())
 	{
-		/*const FVector2D ShootReaction = []()->FVector2D 
-			{
-				return FVector2D(
-					FMath::FRandRange(-.5f, -1.f),
-					(FMath::RandBool() ? 1.f : -1.f) * FMath::FRandRange(.5f, 1.f)
-				);
-			}();
-		AddPitchInput(ShootReaction.X);
-		AddYawInput(ShootReaction.Y);*/
 		if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
 		{
-			BSCharacter->DoFire();
+			FVector Start;
+			FRotator Rotation;
+			GetPlayerViewPoint(Start, Rotation);
+
+			BSCharacter->DoFire(Start, Rotation);
 		}
 	}
 }
@@ -259,6 +257,7 @@ void ABattleSkyPlayerController::OnAiming(const FInputActionValue& Value)
 	}
 }
 
+
 void ABattleSkyPlayerController::OnPeeking(const FInputActionValue& Value)
 {
 	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
@@ -273,18 +272,46 @@ void ABattleSkyPlayerController::OnWeaponChange(const FInputActionValue& Value)
 	{
 		BSCharacter->DoChangeWeapon((int)Value.Get<float>());
 	}
-
 }
 
 void ABattleSkyPlayerController::OnInteraction(const FInputActionValue& Value)
 {
-	if (IInteractable* It = Cast< IInteractable>(FocusedInteractableObject))
+	if (FocusedInteractableObject)
 	{
-		It->Interact(this);
 		if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
 		{
-			BSCharacter->DoInteraction(FocusedInteractableObject);
+			BSCharacter->Server_DoInteraction(FocusedInteractableObject);
 		}
+	}
+}
+
+void ABattleSkyPlayerController::OnInventory(const FInputActionValue& Value)
+{
+	InventoryOpenState = !InventoryOpenState;
+	if (UI)
+	{
+		UI->ShowInventory(InventoryOpenState);
+	}
+	if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetPawn()))
+	{
+		BSCharacter->SearchAround(InventoryOpenState);
+	}
+
+	if (InventoryOpenState)
+	{
+		bShowMouseCursor = true;
+
+		FInputModeGameAndUI InputMode;
+		SetInputMode(InputMode);
+		SetIgnoreLookInput(true);
+	}
+	else
+	{
+		bShowMouseCursor = false;
+
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
+		SetIgnoreLookInput(false);
 	}
 }
 

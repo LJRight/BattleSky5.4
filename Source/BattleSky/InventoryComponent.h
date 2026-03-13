@@ -50,8 +50,8 @@ public:
 	UPROPERTY()
 	TArray<AWeaponBase*> WeaponSlots;
 
-	bool EquipItem(AItemBase* Item);
-	bool EquipWeapon(AWeaponBase* Weapon);
+	bool EquipItem(AItemBase* Item, int& OutSlotIndex);
+	bool EquipWeapon(AWeaponBase* Weapon, int& OutSlotIndex);
 	
 	UFUNCTION()
 	FORCEINLINE AWeaponBase* GetWeapon(const int Index) const { return WeaponSlots[(int32)Index]; };

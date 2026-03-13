@@ -91,6 +91,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* InteractableAction;
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* InventoryAction;
+
+
 
 	// Input Action Handlers
 	void OnMove(const FInputActionValue& Value);
@@ -110,6 +114,9 @@ public:
 	void OnWeaponChange(const FInputActionValue& Value);
 	void OnInteraction(const FInputActionValue& Value);
 	
+	void OnInventory(const FInputActionValue& Value);
+	bool InventoryOpenState = false;
+
 	void SearchInteractableObjects();
 
 	FKey GetInteractKey() const;
