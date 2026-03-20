@@ -89,6 +89,8 @@ void ABattleSkyPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+
+
 	if (bReturningFromFreeLook)
 	{
 		ReturnToFreeLookStartRotationByTime(DeltaTime);
@@ -250,11 +252,11 @@ void ABattleSkyPlayerController::OnViewModeChanged(const FInputActionValue& Valu
 
 void ABattleSkyPlayerController::OnAiming(const FInputActionValue& Value)
 {
-	if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
+	/*if (ABattleSkyCharacter* BSCharacter = GetPawn<ABattleSkyCharacter>())
 	{
 		BSCharacter->OverlayState = Value.Get<bool>() ? EOverlayState::Rifle : EOverlayState::Default;
-		BSCharacter->RotationMode = Value.Get<bool>() ? ERotationMode::Aiming : ERotationMode::LookingDirection;
-	}
+		BSCharacter->Replicated_RotationMode = Value.Get<bool>() ? ERotationMode::Aiming : ERotationMode::LookingDirection;
+	}*/
 }
 
 
@@ -274,6 +276,7 @@ void ABattleSkyPlayerController::OnWeaponChange(const FInputActionValue& Value)
 	}
 }
 
+// 상호작용 가능한 물체에 대해서 상호작용 수행
 void ABattleSkyPlayerController::OnInteraction(const FInputActionValue& Value)
 {
 	if (FocusedInteractableObject)

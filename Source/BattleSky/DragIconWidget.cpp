@@ -6,9 +6,13 @@
 
 void UDragIconWidget::SetIcon(UImage* Icon)
 {
-    if (Icon)
+    if (Icon && MyIcon)
 	{        
-        this->MyIcon = Icon;
+		this->MyIcon->SetBrush(Icon->GetBrush());
+	}
+    else
+    {
+		UE_LOG(LogTemp, Warning, TEXT("No Icon in Item"));
 	}
 }
 
@@ -19,10 +23,9 @@ void UDragIconWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
     if (!GetOwningPlayer())
         return;
 
-    float X, Y;
-
+	float X, Y;
     if (GetOwningPlayer()->GetMousePosition(X, Y))
     {
-        SetPositionInViewport(FVector2D(X, Y));
+		SetPositionInViewport(FVector2D(X - WidgetSize.X * 0.5f, Y - WidgetSize.Y * 0.5f));
     }
 }

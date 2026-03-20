@@ -15,7 +15,6 @@ enum class EWeaponSlot : uint8
 	Secondary UMETA(DisplayName = "Secondary"),
 	Sidearm UMETA(DisplayName = "Sidearm"),
 	Melee UMETA(DisplayName = "Melee"),
-
 	MAX,
 };
 
@@ -30,12 +29,12 @@ enum class EArmorSlot : uint8
 
 class AItemBase;
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class BATTLESKY_API UInventoryComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	// Sets default values for this component's properties
 	UInventoryComponent();
 
@@ -43,19 +42,32 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
 
 	UPROPERTY()
 	TArray<AWeaponBase*> WeaponSlots;
 
-	bool EquipItem(AItemBase* Item, int& OutSlotIndex);
-	bool EquipWeapon(AWeaponBase* Weapon, int& OutSlotIndex);
-	
+	UPROPERTY()
+	TArray<AItemBase*> InventoryItems;
+
+	bool EquipItem(AItemBase* Item);
+	bool EquipWeapon(AWeaponBase* Weapon);
+
+	void PickUpItem(AItemBase* TargetItem);
+	FORCEINLINE bool CanPickUp(float AddedWeight) const { return CurrentWeight + AddedWeight <= MaxWeight; };
+
 	UFUNCTION()
-	FORCEINLINE AWeaponBase* GetWeapon(const int Index) const { return WeaponSlots[(int32)Index]; };
+	FORCEINLINE AWeaponBase* GetWeapon(const int32 Index) const { return WeaponSlots[Index]; };
 
 	UPROPERTY(EditDefaultsOnly)
 	float MaxWeight = 35.f;
+
+	UPROPERTY()
+	float CurrentWeight = 0.f;
+
+private:
+	class ABattleSkyCharacter* OwningCharacter;
 };

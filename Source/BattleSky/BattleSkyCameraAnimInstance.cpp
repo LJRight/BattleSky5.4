@@ -24,7 +24,7 @@ void UBattleSkyCameraAnimInstance::UpdateCharacterInfo()
 		Gait = BattleSkyCharacter->Gait;
 		Stance = BattleSkyCharacter->Stance;
 		ViewMode = BattleSkyCharacter->ViewMode;
-		RotationMode = BattleSkyCharacter->RotationMode;
+		RotationMode = BattleSkyCharacter->Replicated_RotationMode;
 		PeekingDirection = BattleSkyCharacter->Replicated_PeekingDirection;
 	}
 }

@@ -2,33 +2,47 @@
 
 
 #include "InventoryWidget.h"
-#include "Components/VerticalBox.h"
-#include "Components/TextBlock.h"
-#include "Components/ScrollBox.h"
-#include "Components/ScrollBoxSlot.h"
-
-#include "ItemWidget.h"
+#include "UIManagerSubsystem.h"
+#include "ItemContainerWidget.h"
 #include "ItemBase.h"
 
-void UInventoryWidget::UpdateNearbyItemsList(const TArray<AItemBase*> List)
-{
-    if (!NearbyItems)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Can't Find NearByItems Vertical Box"));
-        return;
-    }
-    NearbyItems->ClearChildren();
 
-	for (const auto& Item : List)
-    {
-		UItemWidget* ItemWidget = CreateWidget<UItemWidget>(GetWorld(), ItemWidgetClass);
-        if (ItemWidget)
-        {
-			ItemWidget->Setup(Item);
-            if (UScrollBoxSlot* ScrollBoxSlot = Cast<UScrollBoxSlot>(NearbyItems->AddChild(ItemWidget)))
-            {
-				ScrollBoxSlot->SetPadding(FMargin(0.f, 5.f));
-			}
-        }
-    }
+void UInventoryWidget::UpdateInventoryList(const TArray<AItemBase*>& List)
+{
+	if (InventoryItemsList)
+	{
+		InventoryItemsList->UpdateList(List);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Can't Find Inventory Items List Widget in Inventory Widget"));
+	}
 }
+
+void UInventoryWidget::UpdateNearbyItemsList(const TArray<AItemBase*>& List)
+{
+	if (NearByItemsList)
+	{
+		NearByItemsList->UpdateList(List);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Can't Find Near By Items List Widget in Inventory Widget"));
+	}
+}
+
+FReply UInventoryWidget::NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Cancel Drag"));
+	if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
+	{
+		if (UI->DragManager)
+		{
+			UI->DragManager->EndDrag();
+		}
+		return FReply::Handled();
+	}
+	return Super::NativeOnMouseButtonUp(InGeometry, InMouseEvent);
+}
+
+

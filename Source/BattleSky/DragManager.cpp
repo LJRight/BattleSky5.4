@@ -4,6 +4,7 @@
 #include "DragManager.h"
 #include "ItemWidget.h"
 
+// 인벤토리에서 드래그 시작 시 호출
 void UDragManager::StartDrag(UItemWidget* InWidget)
 {
     if (!InWidget)
@@ -21,19 +22,23 @@ void UDragManager::StartDrag(UItemWidget* InWidget)
         if (DragIconWidget)
         {
             DragIconWidget->SetIcon(InWidget->Icon);
+
+			// 마우스 이벤트 무시 (아래 위젯이 입력 받도록)
+            DragIconWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
             DragIconWidget->AddToViewport(9999);
 		}
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("No DragIcon Widget Class"));
+        UE_LOG(LogTemp, Warning, TEXT("No Drag Icon Widget Class"));
     }
 }
 
 void UDragManager::EndDrag()
 {
     bDragging = false;
-    DraggingWidget = nullptr;
+    
+	DraggingWidget = nullptr;
 
     if (DragIconWidget)
     {

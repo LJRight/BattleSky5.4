@@ -171,6 +171,9 @@ void ABattleSkyCameraManager::CustomCameraBehavior(FVector& OutLocation, FRotato
 
 	OutLocation = Result.GetLocation();
 	OutRotation = Result.GetRotation().Rotator();
+
+	DrawDebugLine(GetWorld(), OutLocation, OutLocation + OutRotation.Vector() * 1000.f, FColor::Green, false);
+
 	OutFOV = FMath::Lerp(TPFOV, FPFOV, GetCameraBehaviorParam(NAME_Weight_FirstPerson));
 }
 

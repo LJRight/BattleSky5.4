@@ -153,7 +153,7 @@ void UBattleSkyAnimInstance::UpdateCharacterInfo()
 		MovementState = BattleSkyCharacter->MovementState;
 		PrevMovementState = BattleSkyCharacter->PrevMovementState;
 		MovementAction = BattleSkyCharacter->MovementAction;
-		RotationMode = BattleSkyCharacter->RotationMode;
+		RotationMode = BattleSkyCharacter->Replicated_RotationMode;
 		Gait = BattleSkyCharacter->Gait;
 		Stance = BattleSkyCharacter->Stance;
 		OverlayState = BattleSkyCharacter->OverlayState;

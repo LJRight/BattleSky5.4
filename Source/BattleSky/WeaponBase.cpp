@@ -1,6 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "WeaponBase.h"
 #include "BattleSkyPlayerController.h"
 #include "BattleSkyCharacter.h"
@@ -18,38 +15,25 @@ const static FVector G = FVector(0.f, 0.f, -980.f);
 AWeaponBase::AWeaponBase()
 {
 	Muzzle = CreateDefaultSubobject<USceneComponent>(TEXT("Muzzle Point"));
-	Muzzle->SetupAttachment(RootComponent);
+	Muzzle->SetupAttachment(Mesh);
 }
 
+void AWeaponBase::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	
+	// DrawDebugLine(GetWorld(), Muzzle->GetComponentLocation(), Muzzle->GetComponentLocation() + Muzzle->GetComponentQuat().Vector() * 1000.f, FColor::Red, false);
+}
+
+// 무기 타입의 아이템의 상호작용의 로직 순서 
+// 무기 타입에 맞는 인벤토리 무기 슬롯의 빈칸 여부를 확인 
 void AWeaponBase::Interact(ABattleSkyPlayerController* Interactor)
 {
 	Super::Interact(Interactor);
 	if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(Interactor->GetCharacter()))
 	{
-		//EWeaponSlot OutEquipedSlot
-		int SlotIndex;
-		if (BSCharacter->Inventory->EquipItem(this, SlotIndex))
-		{
-			OnEquipped(BSCharacter, SlotIndex);
-		}
+		BSCharacter->Inventory->PickUpItem(this);
 	}
-}
-
-void AWeaponBase::OnEquipped(ABattleSkyCharacter* Character, int SlotIndex)
-{
-	SetOwner(Character);
-
-	Mesh->SetSimulatePhysics(false);
-	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	AttachToComponent(
-		Character->GetMesh(),
-		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-		WeaponSockets[SlotIndex]
-	);
-
-	Mesh->SetRelativeLocation(BackAttach.LocationOffset);
-	Mesh->SetRelativeRotation(BackAttach.RotaionOffset);
 }
 
 bool AWeaponBase::OnFire(FVector2D& OutRecoil, const FVector Start, const FRotator Rotation)
@@ -122,17 +106,36 @@ void AWeaponBase::Test()
 	CanFire = true;
 }
 
-void AWeaponBase::AttachToHand(USkeletalMeshComponent* TargetMesh, const FName TargetSocketName)
+void AWeaponBase::AttachToCharacter(USkeletalMeshComponent* TargetMesh, const FName TargetSocketName, bool IsHand)
 {
-	Mesh->SetSimulatePhysics(true);
 	AttachToComponent(
 		TargetMesh,
 		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 		TargetSocketName
 	);
 
-	Mesh->SetRelativeLocation(HandAttach.LocationOffset);
-	Mesh->SetRelativeRotation(HandAttach.RotaionOffset);
+	Mesh->SetRelativeLocation(IsHand ? HandAttach.LocationOffset : BodyAttach.LocationOffset);
+	Mesh->SetRelativeRotation(IsHand ? HandAttach.RotaionOffset : BodyAttach.RotaionOffset);
 }
-//(X = -3.386755, Y = -0.144507, Z = -3.410217)
-//(Pitch = 19.951726, Yaw = -0.534137, Roll = 1.199060)
+
+
+//{
+//	"Tagged": [
+//		[
+//			"RelativeLocation",
+//			"(X=-2.007300,Y=0.170892,Z=-3.206331)"
+//		],
+//			[
+//				"RelativeRotation",
+//				"(Pitch=22.562997,Yaw=-0.538000,Roll=1.259965)"
+//			],
+//			[
+//				"RelativeScale3D",
+//				"(X=1.000003,Y=1.000001,Z=1.000000)"
+//			],
+//			[
+//				"Mobility",
+//				"Movable"
+//			]
+//	]
+//}

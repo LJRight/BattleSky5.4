@@ -1,11 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "ItemBase.h"
 #include "WeaponBase.generated.h"
-
 
 UENUM(BlueprintType)
 enum class EWeaponType : uint8
@@ -13,8 +10,8 @@ enum class EWeaponType : uint8
 	AR UMETA(DisplayName = "AR"),
 	SR UMETA(DisplayName = "SR"),
 	DMR UMETA(DisplayName = "DMR"),
-	Pistol UMETA(DisplayName = "Pistol"),
 	ShotGun UMETA(DisplayName = "ShotGun"),
+	Pistol UMETA(DisplayName = "Pistol"),
 	Melee UMETA(DisplayName = "Melee"),
 };
 
@@ -39,9 +36,9 @@ class BATTLESKY_API AWeaponBase : public AItemBase
 public:
 	AWeaponBase();
 	// virtual void Tick(float DeltaTime) override;
-	virtual void Interact(ABattleSkyPlayerController* Interactor) override;
+	virtual void Tick(float DeltaTime) override;
 
-	void OnEquipped(ABattleSkyCharacter* Character, int SlotIndex);
+	virtual void Interact(ABattleSkyPlayerController* Interactor) override;
 
 	bool OnFire(FVector2D& OutRecoil, /*const FVector TargetLocation, */const FVector Start, const FRotator Rotation);
 	void Test();
@@ -82,7 +79,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Detail Settings")
 	FAttachOffset HandAttach;
 	UPROPERTY(EditAnywhere, Category = "Detail Settings")
-	FAttachOffset BackAttach;
+	FAttachOffset BodyAttach; 
 
-	void AttachToHand(USkeletalMeshComponent* TargetMesh, const FName TargetSocketName);
+	void AttachToCharacter(USkeletalMeshComponent* TargetMesh, const FName TargetSocketName, bool IsHand);
+
 };

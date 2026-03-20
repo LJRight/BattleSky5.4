@@ -17,9 +17,6 @@ void UUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
     Super::Initialize(Collection);
 
 	DragManager = NewObject<UDragManager>(this);
-    UE_LOG(LogTemp, Warning, TEXT("DragIconWidgetClass: %s"),
-		DragIconWidgetClass ? TEXT("Valid") : TEXT("NULL"));
-    DragManager->DragIconWidgetClass = DragIconWidgetClass;
 }
 
 void UUIManagerSubsystem::Deinitialize()
@@ -56,6 +53,9 @@ void UUIManagerSubsystem::ShowInGameUI(APlayerController* Owner)
 	InGameUISets.AddToViewPort();
 	InGameUISets.Interaction->SetVisibility(ESlateVisibility::Hidden);
 	InGameUISets.Inventory->SetVisibility(ESlateVisibility::Hidden);
+
+
+	DragManager->DragIconWidgetClass = DragIconWidgetClass;
     
 }
 

@@ -15,11 +15,13 @@ class BATTLESKY_API UInventoryWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	void UpdateNearbyItemsList(const TArray<class AItemBase*> List);
+	
+	void UpdateInventoryList(const TArray<class AItemBase*>& List);
+	void UpdateNearbyItemsList(const TArray<AItemBase*>& List);
+	virtual FReply NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
 	UPROPERTY(meta = (BindWidget))
-	class UScrollBox* NearbyItems;
-
-	UPROPERTY(EditAnywhere)
-	TSubclassOf<class UItemWidget> ItemWidgetClass;
+	class UItemContainerWidget* InventoryItemsList;
+	UPROPERTY(meta = (BindWidget))
+	UItemContainerWidget* NearByItemsList;
 };

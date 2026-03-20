@@ -45,6 +45,12 @@ void AItemBase::Interact(ABattleSkyPlayerController* Interactor)
 {
 }
 
+void AItemBase::EnableInteraction(bool bEnable)
+{
+	InteractionSphere->SetCollisionEnabled(bEnable ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+	InteractionSphere->SetGenerateOverlapEvents(bEnable);
+}
+
 FText AItemBase::GetText() const
 {
 	return FText::FromString(Name);

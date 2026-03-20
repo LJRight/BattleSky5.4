@@ -21,4 +21,7 @@ public:
 
 	void SetIcon(UImage* Icon);
 	void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+private:
+	FVector2D WidgetSize;
 };

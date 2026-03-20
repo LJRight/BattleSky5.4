@@ -12,13 +12,18 @@
 #include "BattleSkyAnimInstance.h"
 
 
-#include "InventoryComponent.h"
+// #include "InventoryComponent.h"
 #include "UIManagerSubsystem.h"
 #include "BattleSkyPlayerController.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 static const FName NAME_Socket_FP_Camera("FP_Camera");
+static const FName NAME_Socket_Weapon_R("weapon_r_socket");
+static const FName NAME_Socket_Weapon_L("weapon_l_socket");
+
+static const FName NAME_Primary_Socket("Primary");
+static const FName NAME_Secondary_Socket("Secondary");
 
 
 void ABattleSkyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -31,7 +36,7 @@ void ABattleSkyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_MovementDirection);
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_PeekingDirection);
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_CurrentEquipedWeapon);
-
+	DOREPLIFETIME(ABattleSkyCharacter, Replicated_RotationMode);
 }
 
 ABattleSkyCharacter::ABattleSkyCharacter()
@@ -164,7 +169,7 @@ void ABattleSkyCharacter::UpdateGroundedRotation(float DeltaTime)
 	{
 		bTurning = false;
 
-		if(RotationMode == ERotationMode::LookingDirection)
+		if(Replicated_RotationMode == ERotationMode::LookingDirection)
 		{
 			if (Gait == EGait::Sprinting)
 			{
@@ -254,12 +259,12 @@ float ABattleSkyCharacter::CalculateYawOffset() const
 	}
 }
 
+// 인벤토리 UI 키가 트리거 됐을 때 수행
 void ABattleSkyCharacter::SearchAround(const bool bSearch)
 {
 	if (!SearchSphere) return;
 
 	SearchSphere->SetGenerateOverlapEvents(bSearch);
-	
 	NearbyItems.Empty();
 
 	if (bSearch)
@@ -304,6 +309,40 @@ void ABattleSkyCharacter::OnItemLeave(UPrimitiveComponent* OverlappedComponent, 
 			UI->UpdateInventoryNearbyItemsList(NearbyItems);
 		}
 	}
+}
+
+void ABattleSkyCharacter::DropItem(AItemBase* DropTarget)
+{
+	if (!DropTarget) return;
+
+	// 1. Detach
+	DropTarget->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
+	// 2. 캐릭터 앞 방향 위치 계산
+	FVector Forward = GetActorForwardVector();
+	FVector StartLocation = GetActorLocation() + Forward * 100.f;
+	FVector TraceStart = StartLocation + FVector(0, 0, 50.f);
+	FVector TraceEnd = StartLocation - FVector(0, 0, 500.f);
+
+	// 3. 바닥 찾기 (LineTrace)
+	FHitResult Hit;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	FVector FinalLocation = StartLocation;
+
+	if (GetWorld()->LineTraceSingleByChannel(
+		Hit,
+		TraceStart,
+		TraceEnd,
+		ECC_Visibility,
+		Params))
+	{
+		FinalLocation = Hit.Location;
+	}
+	DropTarget->SetActorLocation(FinalLocation);
+	DropTarget->SetActorEnableCollision(true);
+	DropTarget->SetActorHiddenInGame(false);
 }
 
 EMovementDirection ABattleSkyCharacter::CalculateMovementDirection() const
@@ -452,7 +491,7 @@ EGait ABattleSkyCharacter::GetAllowedGait()
 	switch (Stance)
 	{
 		case EStance::Standing:
-			if (RotationMode == ERotationMode::LookingDirection)
+			if (Replicated_RotationMode == ERotationMode::LookingDirection)
 			{
 				Result = DesiredGait != EGait::Sprinting ? DesiredGait : CanSprint() ? EGait::Sprinting : EGait::Running;
 			}
@@ -473,7 +512,7 @@ EGait ABattleSkyCharacter::GetAllowedGait()
 
 bool ABattleSkyCharacter::CanSprint() const
 {
-	if (!HasMovementInput || RotationMode == ERotationMode::Aiming)
+	if (!HasMovementInput || Replicated_RotationMode == ERotationMode::Aiming)
 	{
 		// 입력이 없거나 조준 모드일 때는 스프린트 불가능
 		return false;
@@ -510,7 +549,7 @@ void ABattleSkyCharacter::UpdateDynamicMovementSettings(const EGait AllowedGait)
 FMovementSettings ABattleSkyCharacter::GetTargetMovementSettings() const
 {
 	FMovementSettingsStance StanceSettings;
-	switch (RotationMode)
+	switch (Replicated_RotationMode)
 	{
 		case ERotationMode::VelocityDirection:
 			StanceSettings = MovementData.VelocityDirection;
@@ -687,7 +726,6 @@ void ABattleSkyCharacter::Server_DoPeeking_Implementation(const float PeekingDir
 	}
 }
 
-
 void ABattleSkyCharacter::DoChangeWeapon(const int WeaponIndex)
 {
 	AWeaponBase* SelectedWeapon = Inventory->GetWeapon(WeaponIndex - 1);
@@ -704,6 +742,7 @@ void ABattleSkyCharacter::DoChangeWeapon(const int WeaponIndex)
 	}
 }
 
+// 상호작용 가능한 물체에 대해서 서버에서 수행
 void ABattleSkyCharacter::Server_DoInteraction_Implementation(AActor* TargetActor)
 {
 	if (!TargetActor)
@@ -716,11 +755,12 @@ void ABattleSkyCharacter::Server_DoInteraction_Implementation(AActor* TargetActo
 	{
 		return;
 	}
+
+	// 타깃 액터가 상호작용 가능 여부 인터페이스를 구현하고 있을 때, 해당 인터페이스를 통해 호출
 	if (IInteractable* Interactable = Cast<IInteractable>(TargetActor))
 	{
 		Interactable->Interact(Cast<ABattleSkyPlayerController>(GetController()));
 		Multicast_OnPickupItem();
-		AttachWeapon();
 	}
 }
 
@@ -742,14 +782,47 @@ void ABattleSkyCharacter::AttachWeapon()
 {
 	if (Replicated_CurrentEquipedWeapon)
 	{
-		Replicated_CurrentEquipedWeapon->AttachToHand(GetMesh(), FName("weapon_r_socket"));
+		Replicated_CurrentEquipedWeapon->AttachToCharacter(GetMesh(), NAME_Socket_Weapon_R, true);
 	}
 }
+
+void ABattleSkyCharacter::AttachToBody(AWeaponBase* TargetWeapon, EWeaponSlot TargetWeaponSlot)
+{
+	// 가방 여부 나중에 추가
+
+	switch (TargetWeaponSlot)
+	{
+	case EWeaponSlot::Primary:
+		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Primary_Socket, false);
+		break;
+	case EWeaponSlot::Secondary:
+		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
+		break;
+	case EWeaponSlot::Sidearm:
+		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
+		break;
+	case EWeaponSlot::Melee:
+		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
+		break;
+
+	}
+}
+
+void ABattleSkyCharacter::HoldWeapon(AWeaponBase* TargetWeapon)
+{
+	Replicated_CurrentEquipedWeapon = TargetWeapon;
+	TargetWeapon->AttachToCharacter(GetMesh(), NAME_Socket_Weapon_R, true);
+
+	Replicated_RotationMode = ERotationMode::Aiming;
+}
+
 
 void ABattleSkyCharacter::ChangeViewMode(const FInputActionValue& Value)
 {
 	ViewMode = ViewMode == EViewMode::FirstPerson ? EViewMode::ThirdPerson : EViewMode::FirstPerson;
 }
+
+
 
 FTransform ABattleSkyCharacter::Get3pPivotTarget() const
 {

@@ -8,13 +8,15 @@
 #include "CharacterStateTypes.h"
 #include "CameraInterface.h"
 #include "Components/SphereComponent.h"
+#include "InventoryComponent.h"
 #include "BattleSkyCharacter.generated.h"
+
 
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
-class UInventoryComponent;
+// class UInventoryComponent;
 struct FInputActionValue;
 class AItemBase;
 class AWeaponBase;
@@ -75,10 +77,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void AttachWeapon();
 
+	void AttachToBody(AWeaponBase* TargetWeapon, EWeaponSlot TargetWeaponSlot);
+
 	UPROPERTY(Replicated)
 	AWeaponBase* Replicated_CurrentEquipedWeapon;
 
-	
+
+	UFUNCTION()
+	void HoldWeapon(AWeaponBase* TargetWeapon);
 
 	// 카메라 매니저(로컬)에서 필요한 변수를 위해 호출하는 함수
 	virtual FTransform Get3pPivotTarget() const override;
@@ -108,8 +114,8 @@ public:
 	EMovementState PrevMovementState;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EMovementAction MovementAction;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
-	ERotationMode RotationMode;
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
+	ERotationMode Replicated_RotationMode;
 	UPROPERTY(ReplicatedUsing = OnRep_Gait, EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
 	EGait Gait;
 	UPROPERTY(ReplicatedUsing = OnRep_Stance, EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "State Values")
@@ -153,7 +159,10 @@ public:
 	// 인벤토리 
 	UInventoryComponent* Inventory;
 
-	
+	void DropItem(AItemBase* DropTarget);
+	void PickupItem(AItemBase* PickupTarget);
+
+
 	EMovementDirection CalculateMovementDirection() const;
 	EMovementDirection CalculateQuadrant(const EMovementDirection Current, const float FR_Threshold, const float FL_Threshold, const float BR_Threshold, const float BL_Threshold, const float Buffer, const float Angle) const;
 	bool AngleInRange(const float Angle, const float MinAngle, const float MaxAngle, const float Buffer, const bool IncreaseBuffer) const;
@@ -165,8 +174,8 @@ public:
 
 	
 	// Turn In place
-	FORCEINLINE bool CanRotateInPlace() const { return RotationMode == ERotationMode::Aiming || ViewMode == EViewMode::FirstPerson; };
-	FORCEINLINE bool CanTurnInPlace() const { return ViewMode == EViewMode::ThirdPerson && RotationMode == ERotationMode::LookingDirection; };
+	FORCEINLINE bool CanRotateInPlace() const { return Replicated_RotationMode == ERotationMode::Aiming || ViewMode == EViewMode::FirstPerson; };
+	FORCEINLINE bool CanTurnInPlace() const { return ViewMode == EViewMode::ThirdPerson && Replicated_RotationMode == ERotationMode::LookingDirection; };
 	void TurnInPlaceCheck(float DeltaTime);
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayTurnInPlace(const FRotator ActorTargetRotation, const bool bRotated90);

@@ -4,14 +4,23 @@
 #include "ItemWidget.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
+#include "Components/Border.h"
 #include "UIManagerSubsystem.h"
 #include "ItemBase.h"
 
 void UItemWidget::Setup(AItemBase* ItemInfo)
 {
-	if (ItemInfo->Icon)
+	if (ItemInfo)
 	{
-		this->Icon->SetBrushFromTexture(ItemInfo->Icon);
+		ItemActor = ItemInfo;
+		if (ItemInfo->Icon)
+		{
+			this->Icon->SetBrushFromTexture(ItemInfo->Icon);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("No Icon"));
+		}
 	}
 	ItemName->SetText(ItemInfo->GetText());
 }
@@ -19,21 +28,30 @@ void UItemWidget::Setup(AItemBase* ItemInfo)
 void UItemWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
 	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
+	if (Background)
+	{
+		Background->SetBrushColor(HoverColor);
+	}
 }
 
 void UItemWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
 {
 	Super::NativeOnMouseLeave(InMouseEvent);
+	if (Background)
+	{
+		Background->SetBrushColor(BaseColor);
+	}
 }
 
+// 아이템 위젯에서 드래그 시작
 FReply UItemWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
     if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
     {
-		UUIManagerSubsystem* UIManager = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>();
-		if (UIManager->DragManager)
+		UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>();
+		if (UI && UI->DragManager)
 		{
-			UIManager->DragManager->StartDrag(this);
+			UI->DragManager->StartDrag(this);
 		}
 		else
 		{
@@ -41,19 +59,20 @@ FReply UItemWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const F
 		}
 		return FReply::Handled();
 	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Can Ge Event"));
-	}
     return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 }
+
+// 드래그 종료 시
 FReply UItemWidget::NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
-	UUIManagerSubsystem* UIManager = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>();
-	if (UIManager->DragManager)
+	if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
-		UIManager->DragManager->EndDrag();
+		UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>();
+		if (UI && UI->DragManager && UI->DragManager->IsDragging())
+		{
+			UI->DragManager->EndDrag();
+		}
+		return FReply::Handled();
 	}
-
-	return FReply::Handled();
+	return Super::NativeOnMouseButtonUp(InGeometry, InMouseEvent);
 }
