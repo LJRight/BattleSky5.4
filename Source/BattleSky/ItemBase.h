@@ -59,7 +59,7 @@ protected:
 
 public:
 	virtual void Tick(float DeltaTime) override;
-	virtual void Interact(ABattleSkyPlayerController* Interactor) override;
+	virtual bool TryInteract() override;
 	virtual void EnableInteraction(bool bEnable) override;
 	virtual FText GetText() const override;
 };

@@ -8,36 +8,17 @@
 #include "ItemWidget.h"
 #include "UIManagerSubsystem.h"
 
-void UItemContainerWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
-{
-	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
-	if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
-	{
-		if (UI->DragManager)
-		{
-			UI->DragManager->SetCurrentSlotType(AcceptableItemType);
-		}
-	}
-}
-
-void UItemContainerWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
-{
-	Super::NativeOnMouseLeave(InMouseEvent);
-	if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
-	{
-		if (UI->DragManager)
-		{
-			UI->DragManager->ClearCurrentSlotType();
-		}
-	}
-}
-
 FReply UItemContainerWidget::NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
 	if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
 	{
-		if (UI->DragManager)
+		if (UI->DragManager && UI->DragManager->IsDragging())
 		{
+			UItemWidget* TargetItemWidget = UI->DragManager->GetDraggingItemWidget();
+			if (CanAcceptItem(TargetItemWidget)
+			{
+				OnItemDropped(TargetItemWidget);
+			}
 			UI->DragManager->EndDrag();
 		}
 		return FReply::Handled();
@@ -61,7 +42,7 @@ void UItemContainerWidget::UpdateList(const TArray<AItemBase*>& List)
 			UItemWidget* ItemWidget = CreateWidget<UItemWidget>(GetWorld(), ItemWidgetClass);
 			if (ItemWidget)
 			{
-				ItemWidget->Setup(Item);
+				ItemWidget->Setup(Item, SlotType);
 				if (UScrollBoxSlot* ScrollBoxSlot = Cast<UScrollBoxSlot>(Container->AddChild(ItemWidget)))
 				{
 					ScrollBoxSlot->SetPadding(FMargin(0.f, 5.f));
@@ -69,4 +50,15 @@ void UItemContainerWidget::UpdateList(const TArray<AItemBase*>& List)
 			}
 		}
 	}
+}
+
+bool UItemContainerWidget::CanAcceptItem(UItemWidget* ItemWidget) const
+{
+	return AcceptableItemType.Contains(ItemWidget->GetItem()->Type) && SlotType != ItemWidget->GetOwnerSlotType();
+}
+
+void UItemContainerWidget::OnItemDropped(UItemWidget* ItemWidget)
+{
+	ESlotType SourceSlot = ItemWidget->GetOwnerSlotType();
+	SlotType;
 }

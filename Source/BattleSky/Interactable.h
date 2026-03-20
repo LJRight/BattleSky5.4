@@ -30,7 +30,7 @@ class BATTLESKY_API IInteractable
 {
 	GENERATED_BODY()
 public:
-	virtual void Interact(ABattleSkyPlayerController* Interactor) = 0;
+	virtual bool TryInteract() = 0;
 	virtual void EnableInteraction(bool bEnable) = 0;
 	virtual FText GetText() const = 0;
 	EInteractType InteractType;

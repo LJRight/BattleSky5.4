@@ -11,7 +11,6 @@ AItemBase::AItemBase()
 	
 	RootComponent = InteractionSphere;
 
-
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Item Mesh"));;
 	Mesh->SetupAttachment(RootComponent);
 
@@ -41,8 +40,9 @@ void AItemBase::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-void AItemBase::Interact(ABattleSkyPlayerController* Interactor)
+bool AItemBase::TryInteract()
 {
+	return true;
 }
 
 void AItemBase::EnableInteraction(bool bEnable)

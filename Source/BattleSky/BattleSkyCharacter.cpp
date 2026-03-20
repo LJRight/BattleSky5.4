@@ -40,7 +40,7 @@ void ABattleSkyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 }
 
 ABattleSkyCharacter::ABattleSkyCharacter()
-{	
+{
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -64,9 +64,9 @@ ABattleSkyCharacter::ABattleSkyCharacter()
 	SearchSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	SearchSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
 	SearchSphere->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Overlap);
-	
+
 	// 오버랩 이벤트 구독
-	SearchSphere->OnComponentBeginOverlap.AddDynamic(this,&ABattleSkyCharacter::OnItemEnter);
+	SearchSphere->OnComponentBeginOverlap.AddDynamic(this, &ABattleSkyCharacter::OnItemEnter);
 	SearchSphere->OnComponentEndOverlap.AddDynamic(this, &ABattleSkyCharacter::OnItemLeave);
 }
 
@@ -118,8 +118,8 @@ void ABattleSkyCharacter::SetEssentialValues(float DeltaTime)
 	// 로컬일 때 컨트롤 회전 서버에 반영
 	if (IsLocallyControlled())
 	{
-		FRotator ControlRot; 
-		if (ABattleSkyPlayerController * BSCtr = Cast<ABattleSkyPlayerController>(GetController()))
+		FRotator ControlRot;
+		if (ABattleSkyPlayerController* BSCtr = Cast<ABattleSkyPlayerController>(GetController()))
 		{
 			ControlRot = BSCtr->IsFreeLooking || BSCtr->bReturningFromFreeLook ? BSCtr->FreeLookReturnTargetRotation : GetControlRotation();
 		}
@@ -128,7 +128,7 @@ void ABattleSkyCharacter::SetEssentialValues(float DeltaTime)
 
 		ActorToAimingRotationDelta = ControlRot - GetActorRotation();
 		ActorToAimingRotationDelta.Normalize();
-		
+
 		VelocityToAimingRotationDelta = GetVelocity().Rotation() - ControlRot;
 		VelocityToAimingRotationDelta.Normalize();
 
@@ -141,7 +141,7 @@ void ABattleSkyCharacter::SetEssentialValues(float DeltaTime)
 	{
 		ActorToAimingRotationDelta = Replicated_AimingRotation - GetActorRotation();
 		ActorToAimingRotationDelta.Normalize();
-		
+
 		VelocityToAimingRotationDelta = GetVelocity().Rotation() - Replicated_AimingRotation;
 		VelocityToAimingRotationDelta.Normalize();
 
@@ -150,7 +150,7 @@ void ABattleSkyCharacter::SetEssentialValues(float DeltaTime)
 
 		Replicated_MovementDirection = CalculateMovementDirection();
 	}
-	
+
 }
 
 void ABattleSkyCharacter::UpdateCharacterMovement()
@@ -169,7 +169,7 @@ void ABattleSkyCharacter::UpdateGroundedRotation(float DeltaTime)
 	{
 		bTurning = false;
 
-		if(Replicated_RotationMode == ERotationMode::LookingDirection)
+		if (Replicated_RotationMode == ERotationMode::LookingDirection)
 		{
 			if (Gait == EGait::Sprinting)
 			{
@@ -187,7 +187,7 @@ void ABattleSkyCharacter::UpdateGroundedRotation(float DeltaTime)
 	}
 	// 움직이고 있지 않을 때,
 	else
-	{		
+	{
 		// 1인칭 혹은 조준 중일 때
 		if (CanRotateInPlace())
 		{
@@ -345,6 +345,11 @@ void ABattleSkyCharacter::DropItem(AItemBase* DropTarget)
 	DropTarget->SetActorHiddenInGame(false);
 }
 
+void ABattleSkyCharacter::PickupItem(AItemBase* PickupTarget)
+{
+	Inventory->AddItem(PickupTarget);
+}
+
 EMovementDirection ABattleSkyCharacter::CalculateMovementDirection() const
 {
 	if (Gait == EGait::Sprinting)
@@ -473,7 +478,7 @@ void ABattleSkyCharacter::Multicast_PlayTurnInPlace_Implementation(const FRotato
 
 		return;
 	}
-	
+
 	if (UBattleSkyAnimInstance* BattleSkyAnim = Cast<UBattleSkyAnimInstance>(AnimInstance))
 	{
 		BattleSkyAnim->TurnInPlace(ActorTargetRotation, 1.f, 0.f, false, bRotated90);
@@ -490,22 +495,22 @@ EGait ABattleSkyCharacter::GetAllowedGait()
 	EGait Result = EGait::Running;
 	switch (Stance)
 	{
-		case EStance::Standing:
-			if (Replicated_RotationMode == ERotationMode::LookingDirection)
-			{
-				Result = DesiredGait != EGait::Sprinting ? DesiredGait : CanSprint() ? EGait::Sprinting : EGait::Running;
-			}
-			else
-			{
-				Result = DesiredGait == EGait::Walking ? EGait::Walking : EGait::Running;
-			}
-			break;
-		case EStance::Crouching:
+	case EStance::Standing:
+		if (Replicated_RotationMode == ERotationMode::LookingDirection)
+		{
+			Result = DesiredGait != EGait::Sprinting ? DesiredGait : CanSprint() ? EGait::Sprinting : EGait::Running;
+		}
+		else
+		{
 			Result = DesiredGait == EGait::Walking ? EGait::Walking : EGait::Running;
-			break;
-		case EStance::Prone:
-			Result = EGait::Walking;
-			break;
+		}
+		break;
+	case EStance::Crouching:
+		Result = DesiredGait == EGait::Walking ? EGait::Walking : EGait::Running;
+		break;
+	case EStance::Prone:
+		Result = EGait::Walking;
+		break;
 	}
 	return Result;
 }
@@ -517,11 +522,11 @@ bool ABattleSkyCharacter::CanSprint() const
 		// 입력이 없거나 조준 모드일 때는 스프린트 불가능
 		return false;
 	}
-	if(UCharacterMovementComponent* CharMove = GetCharacterMovement())
+	if (UCharacterMovementComponent* CharMove = GetCharacterMovement())
 	{
 		// 입력이 있으면서 컨트롤 회전(바라보는)과 이동 가속도(움직이고자 하는 방향)의 차이가 50(변수로 조정 가능)보다 작아야 스프린트 가능
 		return FMath::Abs(FMath::FindDeltaAngleDegrees(
-			IsLocallyControlled() ? GetControlRotation().Yaw : Replicated_AimingRotation.Yaw, 
+			IsLocallyControlled() ? GetControlRotation().Yaw : Replicated_AimingRotation.Yaw,
 			CharMove->GetCurrentAcceleration().Rotation().Yaw)) < 50.f && MovementInputAmount > 0.9f;
 	}
 	return false;
@@ -530,7 +535,7 @@ bool ABattleSkyCharacter::CanSprint() const
 void ABattleSkyCharacter::UpdateDynamicMovementSettings(const EGait AllowedGait)
 {
 	CurrentMovementSettings = GetTargetMovementSettings();
-	if(UCharacterMovementComponent* CharMove = GetCharacterMovement())
+	if (UCharacterMovementComponent* CharMove = GetCharacterMovement())
 	{
 		float TargetMaxSpeed = AllowedGait == EGait::Sprinting ? CurrentMovementSettings.SprintSpeed : AllowedGait == EGait::Running ? CurrentMovementSettings.RunSpeed : CurrentMovementSettings.WalkSpeed;
 		CharMove->MaxWalkSpeed = TargetMaxSpeed;
@@ -551,26 +556,26 @@ FMovementSettings ABattleSkyCharacter::GetTargetMovementSettings() const
 	FMovementSettingsStance StanceSettings;
 	switch (Replicated_RotationMode)
 	{
-		case ERotationMode::VelocityDirection:
-			StanceSettings = MovementData.VelocityDirection;
-			break;
-		case ERotationMode::LookingDirection:	
-			StanceSettings = MovementData.LookingDriection;
-			break;
-		case ERotationMode::Aiming:	
-			StanceSettings = MovementData.Aiming;
-			break;
+	case ERotationMode::VelocityDirection:
+		StanceSettings = MovementData.VelocityDirection;
+		break;
+	case ERotationMode::LookingDirection:
+		StanceSettings = MovementData.LookingDriection;
+		break;
+	case ERotationMode::Aiming:
+		StanceSettings = MovementData.Aiming;
+		break;
 	}
 	switch (Stance)
 	{
-		case EStance::Standing:
-			return StanceSettings.Standing;
-		case EStance::Crouching:
-			return StanceSettings.Crouhcing;
-		case EStance::Prone:
-			return StanceSettings.Prone;
-		default:
-			return FMovementSettings();
+	case EStance::Standing:
+		return StanceSettings.Standing;
+	case EStance::Crouching:
+		return StanceSettings.Crouhcing;
+	case EStance::Prone:
+		return StanceSettings.Prone;
+	default:
+		return FMovementSettings();
 	}
 }
 
@@ -596,7 +601,7 @@ float ABattleSkyCharacter::GetMappedSpeed() const
 
 void ABattleSkyCharacter::SetGait(const EGait NewGait)
 {
-	if(NewGait != Gait)
+	if (NewGait != Gait)
 	{
 		OnGaitChanged(NewGait);
 	}
@@ -604,7 +609,7 @@ void ABattleSkyCharacter::SetGait(const EGait NewGait)
 
 void ABattleSkyCharacter::OnGaitChanged(const EGait NewGait)
 {
-	const EGait PreviousGait = Gait; 
+	const EGait PreviousGait = Gait;
 	Gait = NewGait;
 }
 
@@ -681,10 +686,9 @@ void ABattleSkyCharacter::DoCrouch(const FInputActionValue& Value)
 	Server_SetDesiredStance(DesiredStance);
 }
 
-
 // 로컬에서만 호출됨
 void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
-{	
+{
 	const bool bPressed = Value.Get<bool>();
 	EGait NewGait = bPressed ? EGait::Sprinting : EGait::Running;
 	if (DesiredGait != NewGait)
@@ -759,8 +763,12 @@ void ABattleSkyCharacter::Server_DoInteraction_Implementation(AActor* TargetActo
 	// 타깃 액터가 상호작용 가능 여부 인터페이스를 구현하고 있을 때, 해당 인터페이스를 통해 호출
 	if (IInteractable* Interactable = Cast<IInteractable>(TargetActor))
 	{
-		Interactable->Interact(Cast<ABattleSkyPlayerController>(GetController()));
-		Multicast_OnPickupItem();
+		if (Interactable->TryInteract())
+		{
+			Inventory->PickUpItem(Cast<AItemBase>(TargetActor));
+			Multicast_OnPickupItem();
+		}
+
 	}
 }
 
@@ -812,8 +820,7 @@ void ABattleSkyCharacter::HoldWeapon(AWeaponBase* TargetWeapon)
 {
 	Replicated_CurrentEquipedWeapon = TargetWeapon;
 	TargetWeapon->AttachToCharacter(GetMesh(), NAME_Socket_Weapon_R, true);
-
-	Replicated_RotationMode = ERotationMode::Aiming;
+	OverlayState = EOverlayState::Rifle;
 }
 
 

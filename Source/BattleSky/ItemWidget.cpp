@@ -6,13 +6,15 @@
 #include "Components/TextBlock.h"
 #include "Components/Border.h"
 #include "UIManagerSubsystem.h"
+#include "SlotWidget.h"
 #include "ItemBase.h"
 
-void UItemWidget::Setup(AItemBase* ItemInfo)
+void UItemWidget::Setup(AItemBase* ItemInfo, ESlotType SpawnerSlotType)
 {
 	if (ItemInfo)
 	{
 		ItemActor = ItemInfo;
+		OwnerSlotType = SpawnerSlotType;
 		if (ItemInfo->Icon)
 		{
 			this->Icon->SetBrushFromTexture(ItemInfo->Icon);
@@ -21,10 +23,12 @@ void UItemWidget::Setup(AItemBase* ItemInfo)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("No Icon"));
 		}
+
 	}
 	ItemName->SetText(ItemInfo->GetText());
 }
 
+// 아이템 위젯에 호버될 시 마우스
 void UItemWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
 	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);

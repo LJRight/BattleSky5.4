@@ -29,6 +29,13 @@ void UInventoryComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 
 }
 
+void UInventoryComponent::AddItem(AItemBase* Item)
+{
+	InventoryItems.AddUnique(Item);
+
+
+}
+
 // 아이템의 상호작용에서 호출됨
 void UInventoryComponent::PickUpItem(AItemBase* TargetItem)
 {
@@ -36,8 +43,7 @@ void UInventoryComponent::PickUpItem(AItemBase* TargetItem)
 	{
 		TargetItem->EnableInteraction(false);
         if (TargetItem->Type == EItemType::Weapon || TargetItem->Type == EItemType::Armor)
-        {
-            
+		{
             EquipItem(TargetItem);
 			return;
         }

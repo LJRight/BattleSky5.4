@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "ItemWidget.generated.h"
+#include "SlotWidget.h"
 
 /**
  * 
@@ -15,8 +16,10 @@ class BATTLESKY_API UItemWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	void Setup(class AItemBase* ItemInfo);
-	AItemBase* ItemActor = nullptr;
+	void Setup(class AItemBase* ItemInfo, ESlotType SpawnerSlotType);
+
+	FORCEINLINE AItemBase* GetItem() const { return ItemActor; };
+	FORCEINLINE ESlotType GetOwnerSlotType() const { return OwnerSlotType; };
 
 	UPROPERTY(meta = (BindWidget))
 	class UTextBlock* ItemName;
@@ -34,4 +37,7 @@ public:
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry,const FPointerEvent& InMouseEvent) override;
 	virtual FReply NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	
+private:
+	AItemBase* ItemActor = nullptr;
+	ESlotType OwnerSlotType;
 };

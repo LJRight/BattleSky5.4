@@ -38,7 +38,9 @@ public:
 	// virtual void Tick(float DeltaTime) override;
 	virtual void Tick(float DeltaTime) override;
 
-	virtual void Interact(ABattleSkyPlayerController* Interactor) override;
+	virtual bool TryInteract() override;
+
+	bool CanInteract = true;
 
 	bool OnFire(FVector2D& OutRecoil, /*const FVector TargetLocation, */const FVector Start, const FRotator Rotation);
 	void Test();
