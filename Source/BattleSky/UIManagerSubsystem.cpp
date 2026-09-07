@@ -5,7 +5,6 @@
 #include "BattleSkyGameInstance.h"
 #include "SessionLobbyWidget.h"
 
-#include "ItemBase.h"
 #include "LobbyPlayerState.h"
 #include "LobbyGameState.h"
 #include "LobbyPlayerController.h"
@@ -14,9 +13,7 @@
 
 void UUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
-    Super::Initialize(Collection);
-
-	DragManager = NewObject<UDragManager>(this);
+	Super::Initialize(Collection);
 }
 
 void UUIManagerSubsystem::Deinitialize()
@@ -45,18 +42,15 @@ void UUIManagerSubsystem::OnConfirmButtonClicked(const FString& PlayerName)
 void UUIManagerSubsystem::ShowInGameUI(APlayerController* Owner)
 {
     InGameUISets = FInGameUISet(
-        CreateWidget<UCompassWidget>(GetWorld(), CompassWidgetClass),
-        CreateWidget<UCrossHairWidget>(GetWorld(), CrossHairWidgetClass),
-		CreateWidget<UInteractWidget>(GetWorld(), InteractWidgetClass),
-		CreateWidget<UInventoryWidget>(GetWorld(), InventoryWidgetClass)
+        CreateWidget<UCompassWidget>(Owner, CompassWidgetClass),
+        CreateWidget<UCrossHairWidget>(Owner, CrossHairWidgetClass),
+		CreateWidget<UInteractWidget>(Owner, InteractWidgetClass),
+		CreateWidget<UInventoryWidget>(Owner, InventoryWidgetClass)
 	);
+
 	InGameUISets.AddToViewPort();
 	InGameUISets.Interaction->SetVisibility(ESlateVisibility::Hidden);
 	InGameUISets.Inventory->SetVisibility(ESlateVisibility::Hidden);
-
-
-	DragManager->DragIconWidgetClass = DragIconWidgetClass;
-    
 }
 
 void UUIManagerSubsystem::ShowInteractWidget(const bool bShowing, const FText& Text)
@@ -84,14 +78,6 @@ void UUIManagerSubsystem::ShowInventory(const bool bShowing) const
     if (InGameUISets.Compass)
     {
 		InGameUISets.Compass->SetVisibility(bShowing ? ESlateVisibility::Hidden : ESlateVisibility::Visible);
-    }
-}
-
-void UUIManagerSubsystem::UpdateInventoryNearbyItemsList(const TArray<AItemBase*> NearbyItems)
-{
-    if (InGameUISets.Inventory)
-    {
-		InGameUISets.Inventory->UpdateNearbyItemsList(NearbyItems);
     }
 }
 

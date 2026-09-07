@@ -8,10 +8,13 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "BattleSkyAnimInstance.h"
 
 
+
+#include "ItemSystem/Actor/ItemActor.h"
 // #include "InventoryComponent.h"
 #include "UIManagerSubsystem.h"
 #include "BattleSkyPlayerController.h"
@@ -26,6 +29,8 @@ static const FName NAME_Primary_Socket("Primary");
 static const FName NAME_Secondary_Socket("Secondary");
 
 
+#define DEBUG_MSG(Text) if(GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, Text);
+
 void ABattleSkyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -35,8 +40,10 @@ void ABattleSkyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_AimingRotation);
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_MovementDirection);
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_PeekingDirection);
-	DOREPLIFETIME(ABattleSkyCharacter, Replicated_CurrentEquipedWeapon);
+	
 	DOREPLIFETIME(ABattleSkyCharacter, Replicated_RotationMode);
+	//DOREPLIFETIME(ABattleSkyCharacter, Replicated_CurrentEquipedWeapon);
+
 }
 
 ABattleSkyCharacter::ABattleSkyCharacter()
@@ -55,7 +62,8 @@ ABattleSkyCharacter::ABattleSkyCharacter()
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 
-	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+	
+
 
 	SearchSphere = CreateDefaultSubobject<USphereComponent>(TEXT("Search Sphere"));
 	SearchSphere->SetupAttachment(RootComponent);
@@ -64,8 +72,9 @@ ABattleSkyCharacter::ABattleSkyCharacter()
 	SearchSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	SearchSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
 	SearchSphere->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Overlap);
+	
 
-	// ¿À¹ö·¦ ÀÌº¥Æ® ±¸µ¶
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ìºï¿½Æ® ï¿½ï¿½ï¿½ï¿½
 	SearchSphere->OnComponentBeginOverlap.AddDynamic(this, &ABattleSkyCharacter::OnItemEnter);
 	SearchSphere->OnComponentEndOverlap.AddDynamic(this, &ABattleSkyCharacter::OnItemLeave);
 }
@@ -115,16 +124,16 @@ void ABattleSkyCharacter::SetEssentialValues(float DeltaTime)
 		HasMovementInput = MovementInputAmount > 0.f;
 	}
 
-	// ·ÎÄÃÀÏ ¶§ ÄÁÆ®·Ñ È¸Àü ¼­¹ö¿¡ ¹Ý¿µ
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Æ®ï¿½ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ý¿ï¿½
 	if (IsLocallyControlled())
 	{
-		FRotator ControlRot;
+		FRotator ControlRot = GetControlRotation();
 		if (ABattleSkyPlayerController* BSCtr = Cast<ABattleSkyPlayerController>(GetController()))
 		{
 			ControlRot = BSCtr->IsFreeLooking || BSCtr->bReturningFromFreeLook ? BSCtr->FreeLookReturnTargetRotation : GetControlRotation();
 		}
-
-		Server_SetAimingRotation(ControlRot);
+		TrySendAimingRotation(DeltaTime, ControlRot);
+		
 
 		ActorToAimingRotationDelta = ControlRot - GetActorRotation();
 		ActorToAimingRotationDelta.Normalize();
@@ -151,6 +160,33 @@ void ABattleSkyCharacter::SetEssentialValues(float DeltaTime)
 		Replicated_MovementDirection = CalculateMovementDirection();
 	}
 
+}
+
+void ABattleSkyCharacter::TrySendAimingRotation(float DeltaTime, const FRotator CurrentRotation)
+{
+	AimingSendElapsed  += DeltaTime;
+
+	const bool bReachedMinimumInterval = AimingSendElapsed >= NormalSendingInterval;
+	
+	FRotator DeltaRot = UKismetMathLibrary::NormalizedDeltaRotator(LastSentRotation, CurrentRotation);
+	float AngularDistanceRadian = DeltaRot.Quaternion().GetAngle();
+	float AngularDistanceDegree = FMath::RadiansToDegrees(AngularDistanceRadian);
+
+	const bool bRotationChanged = AngularDistanceDegree >= RotationDegreeDiffThreshold;
+
+	const bool bHeartbeatRequired = AimingSendElapsed >= SendingTimerThreshold;
+	
+	if (bReachedMinimumInterval && (bRotationChanged || bHeartbeatRequired))
+	{
+		Server_SetAimingRotation(CurrentRotation);
+		LastSentRotation = CurrentRotation;
+		AimingSendElapsed = 0.f;
+	}
+}
+
+FRotator ABattleSkyCharacter::GetEffectiveAimingRotation() const
+{
+	return IsLocallyControlled() ? GetControlRotation() : Replicated_AimingRotation;
 }
 
 void ABattleSkyCharacter::UpdateCharacterMovement()
@@ -185,22 +221,22 @@ void ABattleSkyCharacter::UpdateGroundedRotation(float DeltaTime)
 			SmoothCharacterRotation(FRotator(0.f, Replicated_AimingRotation.Yaw, 0.f), 1000.f, 20.f, DeltaTime);
 		}
 	}
-	// ¿òÁ÷ÀÌ°í ÀÖÁö ¾ÊÀ» ¶§,
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Ì°ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½,
 	else
 	{
-		// 1ÀÎÄª È¤Àº Á¶ÁØ ÁßÀÏ ¶§
+		// 1ï¿½ï¿½Äª È¤ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
 		if (CanRotateInPlace())
 		{
-			// ÄÁÆ®·Ñ È¸Àü°ú ¾×ÅÍ È¸Àü »çÀÌ °¢ÀÌ ÀÓ°è°ª ÀÌ»óÀÏ ¶§, ¾×ÅÍ È¸Àü µû¶ó°¡±â(+ ¾Ö´Ï¸ÞÀÌ¼Ç¿¡¼­ Rotate In Place ½ÇÇà)
+			// ï¿½ï¿½Æ®ï¿½ï¿½ È¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ó°è°ª ï¿½Ì»ï¿½ï¿½ï¿½ ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½ó°¡±ï¿½(+ ï¿½Ö´Ï¸ï¿½ï¿½Ì¼Ç¿ï¿½ï¿½ï¿½ Rotate In Place ï¿½ï¿½ï¿½ï¿½)
 			if (FMath::Abs(FMath::FindDeltaAngleDegrees(GetActorRotation().Yaw, GetControlRotation().Yaw)) < 50.f)
 			{
 				SmoothCharacterRotation(FRotator(0.f, Replicated_AimingRotation.Yaw, 0.f), 300.f, 10.f, DeltaTime);
 			}
 		}
-		// 3ÀÎÄª »óÈ²¿¡¼­,
+		// 3ï¿½ï¿½Äª ï¿½ï¿½È²ï¿½ï¿½ï¿½ï¿½,
 		if (CanTurnInPlace())
 		{
-			// ¾×ÅÍ È¸Àü°ú ÄÁÆ®·Ñ È¸Àü Â÷ÀÌ°¡ ÀÓ°è°ª ÀÌ»óÀÏ °æ¿ì Turn In Place ¼öÇà
+			// ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Æ®ï¿½ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½Ì°ï¿½ ï¿½Ó°è°ª ï¿½Ì»ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ Turn In Place ï¿½ï¿½ï¿½ï¿½
 			TurnInPlaceCheck(DeltaTime);
 		}
 		else
@@ -214,18 +250,18 @@ void ABattleSkyCharacter::UpdateGroundedRotation(float DeltaTime)
 	}
 }
 
-// ÀÌµ¿ ÁßÀÌ¸é¼­, ÀÌµ¿ ÀÔ·Â°ªÀÌ ÀÖ°Å³ª, ¼Óµµ°¡ 150 ÀÌ»ó ÀÌ¸é¼­ ·çÆ®¸ð¼ÇÀ» ½ÇÇà ÁßÀÌ ¾Æ´Ï¶ó¸é MovingRotation À» ¾÷µ¥ÀÌÆ® ÇÒ ¼ö ÀÖ´Ù
+// ï¿½Ìµï¿½ ï¿½ï¿½ï¿½Ì¸é¼­, ï¿½Ìµï¿½ ï¿½Ô·Â°ï¿½ï¿½ï¿½ ï¿½Ö°Å³ï¿½, ï¿½Óµï¿½ï¿½ï¿½ 150 ï¿½Ì»ï¿½ ï¿½Ì¸é¼­ ï¿½ï¿½Æ®ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Æ´Ï¶ï¿½ï¿½ MovingRotation ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö´ï¿½
 bool ABattleSkyCharacter::CanUpdateMovingRotation()
 {
 	return ((IsMoving && HasMovementInput) || Speed > 150.f) && !HasAnyRootMotion();
 }
-// ¾×ÅÍÀÇ È¸ÀüÀ» Àû¿ëÇÑ´Ù
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ñ´ï¿½
 void ABattleSkyCharacter::SmoothCharacterRotation(const FRotator Target, const float TargetInterpSpeed, const float ActorInterpSpeed, float DeltaTime)
 {
 	TargetRotation = FMath::RInterpTo(TargetRotation, Target, DeltaTime, TargetInterpSpeed);
 	SetActorRotation(FMath::RInterpTo(GetActorRotation(), TargetRotation, DeltaTime, ActorInterpSpeed));
 }
-// ¾×ÅÍ È¸Àü º¸°£°ª ¹ÝÈ¯
+// ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¯
 float ABattleSkyCharacter::CalculateGroundedRotationRate() const
 {
 	if (UCurveFloat* RotationCurve = CurrentMovementSettings.RotationRateCurve)
@@ -259,7 +295,7 @@ float ABattleSkyCharacter::CalculateYawOffset() const
 	}
 }
 
-// ÀÎº¥Åä¸® UI Å°°¡ Æ®¸®°Å µÆÀ» ¶§ ¼öÇà
+// ï¿½Îºï¿½ï¿½ä¸® UI Å°ï¿½ï¿½ Æ®ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 void ABattleSkyCharacter::SearchAround(const bool bSearch)
 {
 	if (!SearchSphere) return;
@@ -270,85 +306,83 @@ void ABattleSkyCharacter::SearchAround(const bool bSearch)
 	if (bSearch)
 	{
 		TArray<AActor*> Actors;
-		SearchSphere->GetOverlappingActors(Actors, AItemBase::StaticClass());
-
+		SearchSphere->GetOverlappingActors(Actors, AItemActor::StaticClass());
 		for (AActor* Actor : Actors)
 		{
-			if (AItemBase* Item = Cast<AItemBase>(Actor))
+			if (AItemActor* Item = Cast<AItemActor>(Actor))
 			{
 				NearbyItems.AddUnique(Item);
 			}
 		}
-
-		if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
+		if (OnNearByUpdated.IsBound())
 		{
-			UI->UpdateInventoryNearbyItemsList(NearbyItems);
+			OnNearByUpdated.Broadcast(NearbyItems);
 		}
 	}
 }
 
 void ABattleSkyCharacter::OnItemEnter(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (AItemBase* Item = Cast<AItemBase>(OtherActor))
+	if (AItemActor* Item = Cast<AItemActor>(OtherActor))
 	{
 		NearbyItems.AddUnique(Item);
-		if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
+		if (OnNearByUpdated.IsBound())
 		{
-			UI->UpdateInventoryNearbyItemsList(NearbyItems);
+			OnNearByUpdated.Broadcast(NearbyItems);
 		}
 	}
 }
 
 void ABattleSkyCharacter::OnItemLeave(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (AItemBase* Item = Cast<AItemBase>(OtherActor))
+	if (AItemActor* Item = Cast<AItemActor>(OtherActor))
 	{
 		NearbyItems.Remove(Item);
-		if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
+		if (OnNearByUpdated.IsBound())
 		{
-			UI->UpdateInventoryNearbyItemsList(NearbyItems);
+			OnNearByUpdated.Broadcast(NearbyItems);
 		}
 	}
 }
 
-void ABattleSkyCharacter::DropItem(AItemBase* DropTarget)
-{
-	if (!DropTarget) return;
+//void ABattleSkyCharacter::DropItem(AItemActor* DropTarget)
+//{
+	//if (!DropTarget) return;
 
-	// 1. Detach
-	DropTarget->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	//// 1. Detach
+	//DropTarget->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
-	// 2. Ä³¸¯ÅÍ ¾Õ ¹æÇâ À§Ä¡ °è»ê
-	FVector Forward = GetActorForwardVector();
-	FVector StartLocation = GetActorLocation() + Forward * 100.f;
-	FVector TraceStart = StartLocation + FVector(0, 0, 50.f);
-	FVector TraceEnd = StartLocation - FVector(0, 0, 500.f);
+	//// 2. Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½
+	//FVector Forward = GetActorForwardVector();
+	//FVector StartLocation = GetActorLocation() + Forward * 100.f;
+	//FVector TraceStart = StartLocation + FVector(0, 0, 50.f);
+	//FVector TraceEnd = StartLocation - FVector(0, 0, 500.f);
 
-	// 3. ¹Ù´Ú Ã£±â (LineTrace)
-	FHitResult Hit;
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
+	//// 3. ï¿½Ù´ï¿½ Ã£ï¿½ï¿½ (LineTrace)
+	//FHitResult Hit;
+	//FCollisionQueryParams Params;
+	//Params.AddIgnoredActor(this);
 
-	FVector FinalLocation = StartLocation;
+	//FVector FinalLocation = StartLocation;
 
-	if (GetWorld()->LineTraceSingleByChannel(
-		Hit,
-		TraceStart,
-		TraceEnd,
-		ECC_Visibility,
-		Params))
-	{
-		FinalLocation = Hit.Location;
-	}
-	DropTarget->SetActorLocation(FinalLocation);
-	DropTarget->SetActorEnableCollision(true);
-	DropTarget->SetActorHiddenInGame(false);
-}
+	//if (GetWorld()->LineTraceSingleByChannel(
+	//	Hit,
+	//	TraceStart,
+	//	TraceEnd,
+	//	ECC_Visibility,
+	//	Params))
+	//{
+	//	FinalLocation = Hit.Location;
+	//}
+	//DropTarget->SetActorLocation(FinalLocation);
+	//DropTarget->SetActorEnableCollision(true);
+	//DropTarget->SetActorHiddenInGame(false);
+//}
 
-void ABattleSkyCharacter::PickupItem(AItemBase* PickupTarget)
-{
-	Inventory->AddItem(PickupTarget);
-}
+//void ABattleSkyCharacter::PickupItem(AItemBase* PickupTarget)
+//{
+//	Inventory->AddItem(PickupTarget);
+//}
 
 EMovementDirection ABattleSkyCharacter::CalculateMovementDirection() const
 {
@@ -487,7 +521,12 @@ void ABattleSkyCharacter::Multicast_PlayTurnInPlace_Implementation(const FRotato
 
 void ABattleSkyCharacter::Server_SetAimingRotation_Implementation(const FRotator NewAimingRotation)
 {
-	Replicated_AimingRotation = NewAimingRotation;
+	if (NewAimingRotation.ContainsNaN())
+	{
+		return;
+	}
+
+	Replicated_AimingRotation = NewAimingRotation.GetNormalized();
 }
 
 EGait ABattleSkyCharacter::GetAllowedGait()
@@ -519,12 +558,12 @@ bool ABattleSkyCharacter::CanSprint() const
 {
 	if (!HasMovementInput || Replicated_RotationMode == ERotationMode::Aiming)
 	{
-		// ÀÔ·ÂÀÌ ¾ø°Å³ª Á¶ÁØ ¸ðµåÀÏ ¶§´Â ½ºÇÁ¸°Æ® ºÒ°¡´É
+		// ï¿½Ô·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Å³ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½Ò°ï¿½ï¿½ï¿½
 		return false;
 	}
 	if (UCharacterMovementComponent* CharMove = GetCharacterMovement())
 	{
-		// ÀÔ·ÂÀÌ ÀÖÀ¸¸é¼­ ÄÁÆ®·Ñ È¸Àü(¹Ù¶óº¸´Â)°ú ÀÌµ¿ °¡¼Óµµ(¿òÁ÷ÀÌ°íÀÚ ÇÏ´Â ¹æÇâ)ÀÇ Â÷ÀÌ°¡ 50(º¯¼ö·Î Á¶Á¤ °¡´É)º¸´Ù ÀÛ¾Æ¾ß ½ºÇÁ¸°Æ® °¡´É
+		// ï¿½Ô·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½é¼­ ï¿½ï¿½Æ®ï¿½ï¿½ È¸ï¿½ï¿½(ï¿½Ù¶óº¸´ï¿½)ï¿½ï¿½ ï¿½Ìµï¿½ ï¿½ï¿½ï¿½Óµï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½Ì°ï¿½ï¿½ï¿½ ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ ï¿½ï¿½ï¿½Ì°ï¿½ 50(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ï¿½ï¿½ ï¿½Û¾Æ¾ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½
 		return FMath::Abs(FMath::FindDeltaAngleDegrees(
 			IsLocallyControlled() ? GetControlRotation().Yaw : Replicated_AimingRotation.Yaw,
 			CharMove->GetCurrentAcceleration().Rotation().Yaw)) < 50.f && MovementInputAmount > 0.9f;
@@ -550,7 +589,7 @@ void ABattleSkyCharacter::UpdateDynamicMovementSettings(const EGait AllowedGait)
 	}
 }
 
-// ÇöÀç È¸Àü ¸ðµå, ÀÚ¼¼¿¡ µû¸¥ ÀÌµ¿ ¼Óµµ ¼¼ÆÃ°ªÀ» °¡Á®¿À´Â ÇÔ¼ö (¼­¹ö, Å¬¶ó)
+// ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ ï¿½ï¿½ï¿½, ï¿½Ú¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ìµï¿½ ï¿½Óµï¿½ ï¿½ï¿½ï¿½Ã°ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ (ï¿½ï¿½ï¿½ï¿½, Å¬ï¿½ï¿½)
 FMovementSettings ABattleSkyCharacter::GetTargetMovementSettings() const
 {
 	FMovementSettingsStance StanceSettings;
@@ -643,7 +682,7 @@ void ABattleSkyCharacter::DoJump(const FInputActionValue& Value)
 	Jump();
 }
 
-// ¼­¹ö¿¡¼­ È£ÃâµÊ
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½
 void ABattleSkyCharacter::Server_SetDesiredGait_Implementation(EGait NewGait)
 {
 	DesiredGait = NewGait;
@@ -653,7 +692,7 @@ void ABattleSkyCharacter::Server_SetDesiredGait_Implementation(EGait NewGait)
 void ABattleSkyCharacter::Server_SetDesiredStance_Implementation(EStance NewStance)
 {
 	DesiredStance = NewStance;
-	// Stance º¯°æÀÌ °¡´ÉÇÑÁö ¼­¹ö¿¡¼­ ÆÇ´Ü
+	// Stance ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ç´ï¿½
 	if (DesiredStance == EStance::Crouching && !bIsCrouched)
 	{
 		Crouch();
@@ -666,19 +705,19 @@ void ABattleSkyCharacter::Server_SetDesiredStance_Implementation(EStance NewStan
 	UpdateDynamicMovementSettings(Gait);
 }
 
-// ¼­¹öÀÇ Gait °ªÀÌ ¹Ù²î¾úÀ» ¶§ Å¬¶ó¿¡¼­ È£ÃâµÊ
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Gait ï¿½ï¿½ï¿½ï¿½ ï¿½Ù²ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ Å¬ï¿½ó¿¡¼ï¿½ È£ï¿½ï¿½ï¿½
 void ABattleSkyCharacter::OnRep_Gait()
 {
 	UpdateDynamicMovementSettings(Gait);
 }
 
-// ¼­¹ö¿¡¼­ Stance °ªÀÌ ¹Ù²î¾úÀ» ¶§ Å¬¶ó¿¡¼­ È£ÃâµÊ
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Stance ï¿½ï¿½ï¿½ï¿½ ï¿½Ù²ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ Å¬ï¿½ó¿¡¼ï¿½ È£ï¿½ï¿½ï¿½
 void ABattleSkyCharacter::OnRep_Stance()
 {
 	UpdateDynamicMovementSettings(Gait);
 }
 
-// ÀÏ´Ü ·ÎÄÃ º¯È­¸¸ È®ÀÎ
+// ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È­ï¿½ï¿½ È®ï¿½ï¿½
 void ABattleSkyCharacter::DoCrouch(const FInputActionValue& Value)
 {
 	DesiredStance = Stance == EStance::Crouching ? EStance::Standing : EStance::Crouching;
@@ -686,7 +725,7 @@ void ABattleSkyCharacter::DoCrouch(const FInputActionValue& Value)
 	Server_SetDesiredStance(DesiredStance);
 }
 
-// ·ÎÄÃ¿¡¼­¸¸ È£ÃâµÊ
+// ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½
 void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
 {
 	const bool bPressed = Value.Get<bool>();
@@ -698,23 +737,23 @@ void ABattleSkyCharacter::DoSprint(const FInputActionValue& Value)
 	}
 }
 
-void ABattleSkyCharacter::DoFire(const FVector Start, const FRotator Rotation)
-{
-	if (Replicated_CurrentEquipedWeapon)
-	{
-		FVector2D OutRecoil;
-
-		if (Replicated_CurrentEquipedWeapon->OnFire(OutRecoil, Start, Rotation))
-		{
-			AddControllerYawInput(OutRecoil.X);
-			AddControllerPitchInput(OutRecoil.Y);
-		}
-	}
-}
+//void ABattleSkyCharacter::DoFire(const FVector Start, const FRotator Rotation)
+//{
+//	if (Replicated_CurrentEquipedWeapon)
+//	{
+//		FVector2D OutRecoil;
+//
+//		if (Replicated_CurrentEquipedWeapon->OnFire(OutRecoil, Start, Rotation))
+//		{
+//			AddControllerYawInput(OutRecoil.X);
+//			AddControllerPitchInput(OutRecoil.Y);
+//		}
+//	}
+//}
 
 void ABattleSkyCharacter::DoPeeking(const float PeekingDirection)
 {
-	// ÇÇÅ· °ªÀÌ º¯ÇßÀ» ¶§¸¸ ¼­¹ö RPC
+	// ï¿½ï¿½Å· ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ RPC
 	if (PeekingDirection != static_cast<int32>(Replicated_PeekingDirection) - 1)
 	{
 		Server_DoPeeking(PeekingDirection);
@@ -732,44 +771,18 @@ void ABattleSkyCharacter::Server_DoPeeking_Implementation(const float PeekingDir
 
 void ABattleSkyCharacter::DoChangeWeapon(const int WeaponIndex)
 {
-	AWeaponBase* SelectedWeapon = Inventory->GetWeapon(WeaponIndex - 1);
-	// ¼±ÅÃµÈ ½½·Ô¿¡ ¹«±â°¡ ÀÖ°í, ÇöÀç µé°íÀÖ´Â ¹«±â¿¡¼­ ±³Ã¼ÇÒ ¼ö ÀÖ´Ù¸é
-	if (SelectedWeapon && Replicated_CurrentEquipedWeapon != SelectedWeapon)
-	{
+	//AWeaponBase* SelectedWeapon = Inventory->GetWeapon(WeaponIndex - 1);
+	//// ï¿½ï¿½ï¿½Ãµï¿½ ï¿½ï¿½ï¿½Ô¿ï¿½ ï¿½ï¿½ï¿½â°¡ ï¿½Ö°ï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½â¿¡ï¿½ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö´Ù¸ï¿½
+	//if (SelectedWeapon && Replicated_CurrentEquipedWeapon != SelectedWeapon)
+	//{
 
-		if (UBattleSkyAnimInstance* BSAnim = Cast<UBattleSkyAnimInstance>(AnimInstance))
-		{
-			BSAnim->OnWeaponChanged();
-		}
-		Replicated_CurrentEquipedWeapon = SelectedWeapon;
-		OverlayState = EOverlayState::Rifle;
-	}
-}
-
-// »óÈ£ÀÛ¿ë °¡´ÉÇÑ ¹°Ã¼¿¡ ´ëÇØ¼­ ¼­¹ö¿¡¼­ ¼öÇà
-void ABattleSkyCharacter::Server_DoInteraction_Implementation(AActor* TargetActor)
-{
-	if (!TargetActor)
-	{
-		return;
-	}
-	float Distance = FVector::Dist(TargetActor->GetActorLocation(), GetActorLocation());
-
-	if (Distance > 500.f)
-	{
-		return;
-	}
-
-	// Å¸±ê ¾×ÅÍ°¡ »óÈ£ÀÛ¿ë °¡´É ¿©ºÎ ÀÎÅÍÆäÀÌ½º¸¦ ±¸ÇöÇÏ°í ÀÖÀ» ¶§, ÇØ´ç ÀÎÅÍÆäÀÌ½º¸¦ ÅëÇØ È£Ãâ
-	if (IInteractable* Interactable = Cast<IInteractable>(TargetActor))
-	{
-		if (Interactable->TryInteract())
-		{
-			Inventory->PickUpItem(Cast<AItemBase>(TargetActor));
-			Multicast_OnPickupItem();
-		}
-
-	}
+	//	if (UBattleSkyAnimInstance* BSAnim = Cast<UBattleSkyAnimInstance>(AnimInstance))
+	//	{
+	//		BSAnim->OnWeaponChanged();
+	//	}
+	//	Replicated_CurrentEquipedWeapon = SelectedWeapon;
+	//	OverlayState = EOverlayState::Rifle;
+	//}
 }
 
 void ABattleSkyCharacter::Multicast_OnPickupItem_Implementation()
@@ -784,44 +797,44 @@ void ABattleSkyCharacter::Multicast_OnPickupItem_Implementation()
 	}
 }
 
-// ¹«±â ±³Ã¼ ¾Ö´Ï¸ÞÀÌ¼Ç¿¡¼­ ÀûÀýÇÑ ÇÁ·¹ÀÓ¿¡¼­ ³ëÆ¼ÆÄÀÌ·Î È£ÃâÇÔ
+// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã¼ ï¿½Ö´Ï¸ï¿½ï¿½Ì¼Ç¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ ï¿½ï¿½Æ¼ï¿½ï¿½ï¿½Ì·ï¿½ È£ï¿½ï¿½ï¿½ï¿½
 // 
 void ABattleSkyCharacter::AttachWeapon()
 {
-	if (Replicated_CurrentEquipedWeapon)
+	/*if (Replicated_CurrentEquipedWeapon)
 	{
 		Replicated_CurrentEquipedWeapon->AttachToCharacter(GetMesh(), NAME_Socket_Weapon_R, true);
-	}
+	}*/
 }
 
-void ABattleSkyCharacter::AttachToBody(AWeaponBase* TargetWeapon, EWeaponSlot TargetWeaponSlot)
-{
-	// °¡¹æ ¿©ºÎ ³ªÁß¿¡ Ãß°¡
+//void ABattleSkyCharacter::AttachToBody(AWeaponBase* TargetWeapon, EWeaponSlot TargetWeaponSlot)
+//{
+//	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ß¿ï¿½ ï¿½ß°ï¿½
+//
+//	switch (TargetWeaponSlot)
+//	{
+//	case EWeaponSlot::Primary:
+//		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Primary_Socket, false);
+//		break;
+//	case EWeaponSlot::Secondary:
+//		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
+//		break;
+//	case EWeaponSlot::Sidearm:
+//		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
+//		break;
+//	case EWeaponSlot::Melee:
+//		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
+//		break;
+//
+//	}
+//}
 
-	switch (TargetWeaponSlot)
-	{
-	case EWeaponSlot::Primary:
-		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Primary_Socket, false);
-		break;
-	case EWeaponSlot::Secondary:
-		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
-		break;
-	case EWeaponSlot::Sidearm:
-		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
-		break;
-	case EWeaponSlot::Melee:
-		TargetWeapon->AttachToCharacter(GetMesh(), NAME_Secondary_Socket, false);
-		break;
-
-	}
-}
-
-void ABattleSkyCharacter::HoldWeapon(AWeaponBase* TargetWeapon)
-{
-	Replicated_CurrentEquipedWeapon = TargetWeapon;
-	TargetWeapon->AttachToCharacter(GetMesh(), NAME_Socket_Weapon_R, true);
-	OverlayState = EOverlayState::Rifle;
-}
+//void ABattleSkyCharacter::HoldWeapon(AWeaponBase* TargetWeapon)
+//{
+//	Replicated_CurrentEquipedWeapon = TargetWeapon;
+//	TargetWeapon->AttachToCharacter(GetMesh(), NAME_Socket_Weapon_R, true);
+//	OverlayState = EOverlayState::Rifle;
+//}
 
 
 void ABattleSkyCharacter::ChangeViewMode(const FInputActionValue& Value)
@@ -855,7 +868,7 @@ void ABattleSkyCharacter::OnMovementModeChanged(EMovementMode PrevMovementMode, 
 	MovementState = ConvertMovementModeToState();
 }
 
-// Á¡ÇÁ ÇßÀ» ¶§ È£Ãâ
+// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ È£ï¿½ï¿½
 void ABattleSkyCharacter::OnJumped_Implementation()
 {
 	Super::OnJumped_Implementation();

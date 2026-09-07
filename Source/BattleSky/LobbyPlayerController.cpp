@@ -25,7 +25,14 @@ void ALobbyPlayerController::BeginPlay()
 		bEnableClickEvents = true;
 		bEnableMouseOverEvents = true;
 		
-		Server_SendLobbyPlayerName(Cast<UBattleSkyGameInstance>(GetGameInstance())->PlayerName);
+		if (UBattleSkyGameInstance* BSGameInstance = Cast<UBattleSkyGameInstance>(GetGameInstance()))
+		{
+			Server_SendLobbyPlayerName(BSGameInstance->PlayerName);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Can't Find GameInstance in LobbyPlayerController"));
+		}
 	}
 }
 

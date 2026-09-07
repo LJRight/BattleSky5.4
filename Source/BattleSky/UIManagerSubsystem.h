@@ -10,14 +10,11 @@
 #include "InteractWidget.h"
 #include "InventoryWidget.h"
 
-// DragManager
-#include "DragManager.h"
-
+#include "ItemSystem/Actor/ItemActor.h"
 #include "UIManagerSubsystem.generated.h"
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSessionLogicRequested, const FSessionRequest&);
 class UInteractWidget;
-class AItemBase;
 
 USTRUCT(BlueprintType)
 struct FInGameUISet 
@@ -72,15 +69,6 @@ public:
 	TSubclassOf<UUserWidget> SessionListWidgetClass;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TSubclassOf<UUserWidget> SessionLobbyWidgetClass;
-	
-
-	// Drag ฐüทร
-
-	UPROPERTY()
-	UDragManager* DragManager = nullptr;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TSubclassOf<UDragIconWidget> DragIconWidgetClass;
 
 	// In Game UI (HUD)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
@@ -107,8 +95,6 @@ public:
 		}
 		return false;
 	};
-
-	void UpdateInventoryNearbyItemsList(const TArray<AItemBase*> NearbyItems);
 
 
 	void ShowMainMenu(APlayerController* Owner);

@@ -6,15 +6,26 @@
 #include "GameFramework/PlayerController.h"
 #include "InputMappingContext.h"
 #include "Interactable.h"
+#include "ItemSystem/Data/ItemSlotType.h"
 #include "BattleSkyPlayerController.generated.h"
 
-/**
- * 
- */
+class UInventoryComponent;
+
 UCLASS()
 class BATTLESKY_API ABattleSkyPlayerController : public APlayerController
 {
 	GENERATED_BODY()
+
+public:
+	ABattleSkyPlayerController();
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	UInventoryComponent* Inventory;
+
+	void PickupItem(AActor* ItemActor);
+
+	void HandleInventoryLogic(const FSlotInfo& Source, const FSlotInfo& Target, FGuid ItemID);
+	void HandleInventoryLogic(const FSlotInfo& Source, const FSlotInfo& Target, AActor* ItemActor);
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
@@ -27,12 +38,11 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
-	void ReturnToFreeLookStartRotationBySpeed(float DeltaTime);
 	void ReturnToFreeLookStartRotationByTime(float DeltaTime);
 
 	// Input Action
 public:
-	
+
 	UPROPERTY(EditDefaultsOnly, Category = "Input Settings")
 	float VerticalLookRate = 1.f;
 	UPROPERTY(EditDefaultsOnly, Category = "Input Settings")
@@ -94,8 +104,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* InventoryAction;
 
-
-
 	// Input Action Handlers
 	void OnMove(const FInputActionValue& Value);
 	void OnMouseLook(const FInputActionValue& Value);
@@ -112,7 +120,10 @@ public:
 	void OnAiming(const FInputActionValue& Value);
 	void OnPeeking(const FInputActionValue& Value);
 	void OnWeaponChange(const FInputActionValue& Value);
+
 	void OnInteraction(const FInputActionValue& Value);
+	UFUNCTION(Server, Reliable)
+	void Server_DoInteract(AActor* Target);
 	
 	void OnInventory(const FInputActionValue& Value);
 	bool InventoryOpenState = false;
@@ -120,10 +131,13 @@ public:
 	void SearchInteractableObjects();
 
 	FKey GetInteractKey() const;
-
 private : 
+
+	
 	class UUIManagerSubsystem* UI;
 
 	bool IsAiming = false;
-	AActor* FocusedInteractableObject;
+	AActor* FocusedInteractableActor;
 };
+
+

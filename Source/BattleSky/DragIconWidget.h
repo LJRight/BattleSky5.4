@@ -7,9 +7,7 @@
 #include "Components/Image.h"
 #include "DragIconWidget.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class BATTLESKY_API UDragIconWidget : public UUserWidget
 {
@@ -20,7 +18,6 @@ public:
 	UImage* MyIcon;
 
 	void SetIcon(UImage* Icon);
-	void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 private:
 	FVector2D WidgetSize;

@@ -8,6 +8,17 @@
 #include "BattleSkyCameraManager.h"
 #include "UIManagerSubsystem.h"
 
+#include "ItemSystem/Actor/ItemActor.h"
+#include "InventoryComponent.h"
+
+
+#define DEBUG_MSG(Text) if(GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, Text);
+
+ABattleSkyPlayerController::ABattleSkyPlayerController()
+{
+	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+}
+
 void ABattleSkyPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
@@ -57,18 +68,6 @@ void ABattleSkyPlayerController::SetupInputComponent()
 	}
 }
 
-// 호스트가 아닌 클라이언트의 경우 해당 함수는 서버에서만 호출되고,
-// 카메라 매니저는 Replicate 대상이 아니므로
-// 로컬 카메라 매니저는 제대로 소유한 폰 참조를 얻을 수 없다
-// //void ABattleSkyPlayerController::OnPossess(APawn* InPawn)
-//{
-//	Super::OnPossess(InPawn);
-//	if (ABattleSkyCameraManager* BSCameraManager = Cast<ABattleSkyCameraManager>(PlayerCameraManager))
-//	{
-//		BSCameraManager->OnPossess(InPawn);
-//	}
-//}
-
 void ABattleSkyPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -89,12 +88,11 @@ void ABattleSkyPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-
-
 	if (bReturningFromFreeLook)
 	{
 		ReturnToFreeLookStartRotationByTime(DeltaTime);
 	}
+
 	if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
 	{
 		if (IsLocalPlayerController())
@@ -104,24 +102,6 @@ void ABattleSkyPlayerController::Tick(float DeltaTime)
 	}
 }
 
-void ABattleSkyPlayerController::ReturnToFreeLookStartRotationBySpeed(float DeltaTime)
-{
-	FRotator Current = GetControlRotation();
-
-	float MaxStep = FreeLookReturnInterpSpeed * DeltaTime;
-
-	Current.Yaw = FMath::FixedTurn(
-		Current.Yaw,
-		FreeLookReturnTargetRotation.Yaw,
-		MaxStep
-	);
-
-	SetControlRotation(Current);
-	if (FMath::IsNearlyEqual(Current.Yaw, FreeLookReturnTargetRotation.Yaw, 0.1f))
-	{
-		bReturningFromFreeLook = false;
-	}
-}
 
 void ABattleSkyPlayerController::ReturnToFreeLookStartRotationByTime(float DeltaTime)
 {
@@ -196,7 +176,7 @@ void ABattleSkyPlayerController::OnWalk(const FInputActionValue& Value)
 	{
 		BSCharacter->DoWalk(Value);
 	}
-}
+} 
 
 void ABattleSkyPlayerController::OnSprint(const FInputActionValue& Value)
 {
@@ -218,13 +198,12 @@ void ABattleSkyPlayerController::OnFreeLook(const FInputActionValue& Value)
 		bReturningFromFreeLook = true;
 		FreeLookReturnStartRotation = GetControlRotation();
 		FreeLookReturnElapsed = 0.f;
-
 	}
 }
 
 void ABattleSkyPlayerController::OnFire(const FInputActionValue& Value)
 {
-	if (Value.Get<bool>())
+	/*if (Value.Get<bool>())
 	{
 		if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
 		{
@@ -234,7 +213,7 @@ void ABattleSkyPlayerController::OnFire(const FInputActionValue& Value)
 
 			BSCharacter->DoFire(Start, Rotation);
 		}
-	}
+	}*/
 }
 
 void ABattleSkyPlayerController::OnStopFire(const FInputActionValue& Value)
@@ -276,15 +255,62 @@ void ABattleSkyPlayerController::OnWeaponChange(const FInputActionValue& Value)
 	}
 }
 
-// 상호작용 가능한 물체에 대해서 상호작용 수행
+// 상호작용 가능한 물체에 대해서 로컬 입력으로 상호작용 수행
 void ABattleSkyPlayerController::OnInteraction(const FInputActionValue& Value)
 {
-	if (FocusedInteractableObject)
+	if (FocusedInteractableActor)
 	{
-		if (ABattleSkyCharacter* BSCharacter = Cast<ABattleSkyCharacter>(GetCharacter()))
+		Server_DoInteract(FocusedInteractableActor);
+	}
+}
+
+// 줍기 담당 액션 최종 (F키, 드래그, 우클릭)
+void ABattleSkyPlayerController::Server_DoInteract_Implementation(AActor* Target)
+{
+	IInteractable* Interactable = Cast<IInteractable>(Target);
+	if (Interactable && Interactable->TryInteract())
+	{
+		Interactable->Interact();
+		if (Inventory)
 		{
-			BSCharacter->Server_DoInteraction(FocusedInteractableObject);
+			
 		}
+	}
+}
+
+void ABattleSkyPlayerController::PickupItem(AActor* ItemActor)
+{
+	if (Inventory)
+	{
+		/*if (Inventory->AddItem(InData, OutQuantity))
+		{
+
+		}*/
+	}
+}
+
+void ABattleSkyPlayerController::HandleInventoryLogic(const FSlotInfo& Source, const FSlotInfo& Target, FGuid ItemID)
+{
+
+}
+
+// 액터 포인터를 입력으로 받는 경우 항상 월드 상의 아이템에 대한 로직이다
+void ABattleSkyPlayerController::HandleInventoryLogic(const FSlotInfo& Source, const FSlotInfo& Target, AActor* ItemActor)
+{
+	if (!ItemActor || Source.Group != ESlotGroup::World)
+	{
+		return;
+	}
+	switch (Target.Group)
+	{
+	case ESlotGroup::Inventory:
+		break;
+	case ESlotGroup::Weapon:
+		break;
+	case ESlotGroup::Equipment:
+		break;
+	case ESlotGroup::Attachment:
+		break;
 	}
 }
 
@@ -327,7 +353,7 @@ void ABattleSkyPlayerController::SearchInteractableObjects()
 
 	GetPlayerViewPoint(Start, Rotation);
 
-	FVector End = Start + Rotation.Vector() * 500.f; // 거리 변수 가능
+	FVector End = Start + Rotation.Vector() * 500.f;
 
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(GetPawn());
@@ -343,20 +369,20 @@ void ABattleSkyPlayerController::SearchInteractableObjects()
 	if (bHit)
 	{
 		AActor* NewActor = HitResult.GetActor();
-		if (NewActor != FocusedInteractableObject)
+		if (NewActor && NewActor != FocusedInteractableActor)
 		{
-			FocusedInteractableObject = NewActor;
+			FocusedInteractableActor = NewActor;
 			if(UI)
 			{
 				UI->ShowInteractWidget(
 					true, 
-					FText::Format(FText::FromString("[{0}] {1}"), GetInteractKey().GetDisplayName(), Cast<IInteractable>(FocusedInteractableObject)->GetText()));
+					FText::Format(FText::FromString("[{0}] {1}"), GetInteractKey().GetDisplayName(), Cast<IInteractable>(FocusedInteractableActor)->GetText()));
 			}
 		}
 	}
 	else
 	{
-		FocusedInteractableObject = nullptr;
+		FocusedInteractableActor = nullptr;
 		if (UI && UI->CanHideInteractionWidget())
 		{
 			UI->ShowInteractWidget(false, FText::GetEmpty());

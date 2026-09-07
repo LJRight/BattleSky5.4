@@ -8,25 +8,24 @@
 #include "CharacterStateTypes.h"
 #include "CameraInterface.h"
 #include "Components/SphereComponent.h"
-#include "InventoryComponent.h"
+
 #include "BattleSkyCharacter.generated.h"
 
 
-class USpringArmComponent;
-class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
-// class UInventoryComponent;
 struct FInputActionValue;
-class AItemBase;
-class AWeaponBase;
+
+
+class AItemActor;
+
 
 USTRUCT(BlueprintType)
 struct FTurnInPlaceData
 {
 	GENERATED_BODY()
 	FTurnInPlaceData(const float StartYaw = 0.f, const float TargetYaw = 0.f, const float Duration = 0.f)
-		: StartYaw(StartYaw), TargetYaw(TargetYaw), Duration(Duration), Elapsed(0.f) 
+		: StartYaw(StartYaw), TargetYaw(TargetYaw), Duration(Duration), Elapsed(0.f)
 	{
 	};
 	float StartYaw;
@@ -37,7 +36,7 @@ struct FTurnInPlaceData
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
-UCLASS(config=Game)
+UCLASS(config = Game)
 class ABattleSkyCharacter : public ACharacter, public ICameraInterface
 {
 	GENERATED_BODY()
@@ -45,10 +44,10 @@ class ABattleSkyCharacter : public ACharacter, public ICameraInterface
 public:
 	ABattleSkyCharacter();
 
-	// ¸®ÇÃ¸®ÄÉÀÌÆ® º¯¼ö ¼³Á¤ ÇÔ¼ö
+	// ï¿½ï¿½ï¿½Ã¸ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	// À¯Àú ÀÔ·Â¿¡ µû¶ó ½ÇÇàµÇ´Â ÇÔ¼ö
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½Ô·Â¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ç´ï¿½ ï¿½Ô¼ï¿½
 	void DoMove(const FVector2D MovementVector, const FRotator BaseRotation);
 	void DoWalk(const FInputActionValue& Value);
 	void DoJump(const FInputActionValue& Value);
@@ -60,16 +59,43 @@ public:
 	void DoFire(const FVector Start, const FRotator Rotation);
 
 	void DoPeeking(const float PeekingDirection);
-	
+
+	// ï¿½Öºï¿½ ï¿½ï¿½Ã¼ Å½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+
+	void SearchAround(const bool bSearch);
+
+	UPROPERTY(VisibleAnywhere)
+	USphereComponent* SearchSphere;
+
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnNearByUpdated, const TArray<AItemActor*>&);
+	FOnNearByUpdated OnNearByUpdated;
+	UPROPERTY(VisibleAnywhere)
+	TArray<AItemActor*> NearbyItems;
+
+	UFUNCTION()
+	void OnItemEnter(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+	UFUNCTION()
+	void OnItemLeave(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex
+	);
+
+	// ï¿½Îºï¿½ï¿½ä¸® 
 	UFUNCTION(Server, Reliable)
 	void Server_DoPeeking(const float Value);
 	UPROPERTY(Replicated)
 	EPeekingDirection Replicated_PeekingDirection = EPeekingDirection::None;
 
 	void DoChangeWeapon(const int WeaponIndex);
-	
-	UFUNCTION(Server, Reliable)
-	void Server_DoInteraction(AActor* TargetActor);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_OnPickupItem();
@@ -77,21 +103,23 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void AttachWeapon();
 
-	void AttachToBody(AWeaponBase* TargetWeapon, EWeaponSlot TargetWeaponSlot);
+	// void AttachToBody(AWeaponBase* TargetWeapon, EWeaponSlot TargetWeaponSlot);
 
-	UPROPERTY(Replicated)
-	AWeaponBase* Replicated_CurrentEquipedWeapon;
+	/*UPROPERTY(Replicated)
+	AWeaponBase* Replicated_CurrentEquipedWeapon;*/
 
 
-	UFUNCTION()
-	void HoldWeapon(AWeaponBase* TargetWeapon);
+	//UFUNCTION()
+	//void HoldWeapon(AWeaponBase* TargetWeapon);
 
-	// Ä«¸Þ¶ó ¸Å´ÏÀú(·ÎÄÃ)¿¡¼­ ÇÊ¿äÇÑ º¯¼ö¸¦ À§ÇØ È£ÃâÇÏ´Â ÇÔ¼ö
+
+
+	// Ä«ï¿½Þ¶ï¿½ ï¿½Å´ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ï¿½ï¿½ ï¿½Ê¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½Ô¼ï¿½
 	virtual FTransform Get3pPivotTarget() const override;
 	virtual FVector GetFPCameraTarget() const override;
 	virtual void GetCameraParameters(float& OutTP_FOV, float& OutFP_FOV, bool& OutRightShoulder) const override;
 
-	// Ä«¸Þ¶ó ¸Å´ÏÀú¿¡°Ô ¹ÝÈ¯ÇÏ´Â °ªµé
+	// Ä«ï¿½Þ¶ï¿½ ï¿½Å´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¯ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
 	float ThirdPersonFOV;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera System", meta = (AllowPrivateAccess = "true"))
@@ -130,37 +158,9 @@ public:
 	FRotator Replicated_AimingRotation;
 
 
-	// ÁÖº¯ ¹°Ã¼ Å½»ö °ü·Ã
 
-	void SearchAround(const bool bSearch);
 
-	UPROPERTY(VisibleAnywhere)
-	USphereComponent* SearchSphere;
-	UPROPERTY(VisibleAnywhere)
-	TArray<AItemBase*> NearbyItems;
 
-	UFUNCTION()
-	void OnItemEnter(
-		UPrimitiveComponent* OverlappedComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& SweepResult
-	);
-	UFUNCTION()
-	void OnItemLeave(
-		UPrimitiveComponent* OverlappedComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex
-	);
-
-	// ÀÎº¥Åä¸® 
-	UInventoryComponent* Inventory;
-
-	void DropItem(AItemBase* DropTarget);
-	void PickupItem(AItemBase* PickupTarget);
 
 
 	EMovementDirection CalculateMovementDirection() const;
@@ -172,7 +172,7 @@ public:
 	UCurveVector* YawOffset_LR;
 
 
-	
+
 	// Turn In place
 	FORCEINLINE bool CanRotateInPlace() const { return Replicated_RotationMode == ERotationMode::Aiming || ViewMode == EViewMode::FirstPerson; };
 	FORCEINLINE bool CanTurnInPlace() const { return ViewMode == EViewMode::ThirdPerson && Replicated_RotationMode == ERotationMode::LookingDirection; };
@@ -212,7 +212,7 @@ private:
 
 	void SetEssentialValues(float DeltaTime);
 	void UpdateCharacterMovement();
-	
+
 	EGait GetAllowedGait();
 	bool CanSprint() const;
 	void UpdateDynamicMovementSettings(const EGait AllowedGiat);
@@ -240,7 +240,7 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Essential information", meta = (AllowPrivateAccess = "true"))
 	bool HasMovementInput;
 
-public: 
+public:
 	FORCEINLINE bool Get_HasMovementInput() const { return HasMovementInput; };
 private:
 
@@ -251,12 +251,24 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Essential information", meta = (AllowPrivateAccess = "true"))
 	float AimYawRate;
 
-	
 
-	
+
+
 	// Actor Rotation
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(Server, Unreliable)
 	void Server_SetAimingRotation(const FRotator NewAimingRotation);
+	void TrySendAimingRotation(float DeltaTime, const FRotator CurrentRotation);
+	FRotator GetEffectiveAimingRotation() const;
+
+	float AimingSendElapsed = 0.0f;
+	FRotator LastSentRotation = FRotator::ZeroRotator;
+	UPROPERTY(EditAnywhere, Category = "Network Settings", meta = (AllowPrivateAccess = "true"))
+	float NormalSendingInterval = 0.05f;
+	UPROPERTY(EditAnywhere, Category = "Network Settings", meta = (AllowPrivateAccess = "true"))
+	float RotationDegreeDiffThreshold = 0.5f;
+	UPROPERTY(EditAnywhere, Category = "Network Settings", meta = (AllowPrivateAccess = "true"))
+	float SendingTimerThreshold = 0.2f;
+
 	// Cached Values
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cached Values", meta = (AllowPrivateAccess = "true"))
 	float PreviousAimYaw;
@@ -290,11 +302,11 @@ private:
 	bool SprintHeld;
 
 
-protected:	
+protected:
 	// To add mapping context
 	virtual void BeginPlay();
 	virtual void Tick(float DeltaTime) override;
 
-	
+
 };
 
